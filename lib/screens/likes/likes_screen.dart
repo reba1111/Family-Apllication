@@ -179,20 +179,28 @@ class _LikesScreenState extends State<LikesScreen>
                     ),
 
                     // ── Partner's List (read-only, real-time) ──
-                    StreamBuilder<UserModel?>(
-                      stream: _fs.streamUser(widget.partnerId),
-                      builder: (context, snap) {
-                        if (snap.connectionState == ConnectionState.waiting) {
-                          return const Center(
-                            child: CircularProgressIndicator(
-                                color: AppTheme.primary),
-                          );
-                        }
-                        final partner = snap.data;
-                        if (partner == null) return const SizedBox();
-                        return _PartnerListView(partner: partner);
-                      },
-                    ),
+                    widget.partnerId.isEmpty
+                        ? Center(
+                            child: Text(
+                              'هێشتا هاوسەرەکەت نەبەستراوەتەوە',
+                              style: AppTheme.bodyLarge,
+                            ),
+                          )
+                        : StreamBuilder<UserModel?>(
+                            stream: _fs.streamUser(widget.partnerId),
+                            builder: (context, snap) {
+                              if (snap.connectionState ==
+                                  ConnectionState.waiting) {
+                                return const Center(
+                                  child: CircularProgressIndicator(
+                                      color: AppTheme.primary),
+                                );
+                              }
+                              final partner = snap.data;
+                              if (partner == null) return const SizedBox();
+                              return _PartnerListView(partner: partner);
+                            },
+                          ),
                   ],
                 ),
               ),
