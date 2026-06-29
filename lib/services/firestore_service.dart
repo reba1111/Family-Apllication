@@ -25,18 +25,10 @@ class FirestoreService {
     });
 
     final userRef = _db.collection(AppConstants.usersCollection).doc(userId);
-    final userDoc = await userRef.get();
-    if (userDoc.exists) {
-      await userRef.update({'coupleId': coupleRef.id});
-    } else {
-      await userRef.set({
-        'uid': userId,
-        'email': '',
-        'displayName': 'User',
-        'coupleId': coupleRef.id,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-    }
+    await userRef.set({
+      'uid': userId,
+      'coupleId': coupleRef.id,
+    }, SetOptions(merge: true));
 
     return code;
   }
@@ -49,17 +41,24 @@ class FirestoreService {
     final query = await _db
         .collection(AppConstants.couplesCollection)
         .where('code', isEqualTo: code)
-        .where('user2Id', isNull: true)
         .limit(1)
         .get();
 
     if (query.docs.isEmpty) {
-      throw Exception('کۆدەکە بوجود نییە یان پێشتر بەکارهاتووە.');
+      throw Exception('کۆدەکە هەڵەیە.');
     }
 
     final coupleDoc = query.docs.first;
+    if (coupleDoc.data().containsKey('user2Id') && coupleDoc['user2Id'] != null) {
+      throw Exception('ئەم کۆدە پێشتر بەکارهاتووە.');
+    }
+
     final coupleId = coupleDoc.id;
     final user1Id = coupleDoc['user1Id'] as String;
+
+    if (user1Id == user2Id) {
+      throw Exception('ناتوانیت کۆدی خۆت داخڵ بکەیت!');
+    }
 
     // Batch write for atomicity
     final batch = _db.batch();
