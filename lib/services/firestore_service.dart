@@ -1,0 +1,240 @@
+import 'dart:math';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../core/constants.dart';
+import '../models/user_model.dart';
+import '../models/models.dart';
+
+class FirestoreService {
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
+
+  // ─────────────────────────────────────────────────────────────────
+  // COUPLE CODE
+  // ─────────────────────────────────────────────────────────────────
+
+  /// Generate a random 6-digit code, store in couples/{coupleId},
+  /// and write coupleId back to the user's profile.
+  Future<String> generateCoupleCode(String userId) async {
+    final code = _randomSixDigits();
+    final coupleRef = _db.collection(AppConstants.couplesCollection).doc();
+
+    await coupleRef.set({
+      'code': code,
+      'user1Id': userId,
+      'user2Id': null,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    final userRef = _db.collection(AppConstants.usersCollection).doc(userId);
+    final userDoc = await userRef.get();
+    if (userDoc.exists) {
+      await userRef.update({'coupleId': coupleRef.id});
+    } else {
+      await userRef.set({
+        'uid': userId,
+        'email': '',
+        'displayName': 'User',
+        'coupleId': coupleRef.id,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    }
+
+    return code;
+  }
+
+  /// Look up the code, link user2, update both users' profiles.
+  Future<void> enterCoupleCode({
+    required String code,
+    required String user2Id,
+  }) async {
+    final query = await _db
+        .collection(AppConstants.couplesCollection)
+        .where('code', isEqualTo: code)
+        .where('user2Id', isNull: true)
+        .limit(1)
+        .get();
+
+    if (query.docs.isEmpty) {
+      throw Exception('کۆدەکە بوجود نییە یان پێشتر بەکارهاتووە.');
+    }
+
+    final coupleDoc = query.docs.first;
+    final coupleId = coupleDoc.id;
+    final user1Id = coupleDoc['user1Id'] as String;
+
+    // Batch write for atomicity
+    final batch = _db.batch();
+
+    batch.update(coupleDoc.reference, {'user2Id': user2Id});
+
+    batch.update(
+      _db.collection(AppConstants.usersCollection).doc(user1Id),
+      {'coupleId': coupleId, 'partnerId': user2Id},
+    );
+
+    batch.update(
+      _db.collection(AppConstants.usersCollection).doc(user2Id),
+      {'coupleId': coupleId, 'partnerId': user1Id},
+    );
+
+    await batch.commit();
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  // USER
+  // ─────────────────────────────────────────────────────────────────
+
+  Future<UserModel?> getUser(String uid) async {
+    final doc =
+        await _db.collection(AppConstants.usersCollection).doc(uid).get();
+    return doc.exists ? UserModel.fromFirestore(doc) : null;
+  }
+
+  Stream<UserModel?> streamUser(String uid) {
+    return _db
+        .collection(AppConstants.usersCollection)
+        .doc(uid)
+        .snapshots()
+        .map((d) => d.exists ? UserModel.fromFirestore(d) : null);
+  }
+
+  Future<void> updateLikesDislikes({
+    required String uid,
+    required List<String> likes,
+    required List<String> dislikes,
+  }) async {
+    await _db.collection(AppConstants.usersCollection).doc(uid).update({
+      'likes': likes,
+      'dislikes': dislikes,
+    });
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  // LESSONS
+  // ─────────────────────────────────────────────────────────────────
+
+  CollectionReference _lessonsRef(String coupleId) => _db
+      .collection(AppConstants.couplesCollection)
+      .doc(coupleId)
+      .collection(AppConstants.lessonsCollection);
+
+  Stream<List<LessonModel>> streamLessons(String coupleId) {
+    return _lessonsRef(coupleId)
+        .orderBy('dateTime')
+        .snapshots()
+        .map((s) => s.docs.map((d) => LessonModel.fromFirestore(d)).toList());
+  }
+
+  Future<String> addLesson(String coupleId, LessonModel lesson) async {
+    final ref = await _lessonsRef(coupleId).add(lesson.toFirestore());
+    return ref.id;
+  }
+
+  Future<void> deleteLesson(String coupleId, String lessonId) async {
+    await _lessonsRef(coupleId).doc(lessonId).delete();
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  // TASKS
+  // ─────────────────────────────────────────────────────────────────
+
+  CollectionReference _tasksRef(String coupleId) => _db
+      .collection(AppConstants.couplesCollection)
+      .doc(coupleId)
+      .collection(AppConstants.tasksCollection);
+
+  Stream<List<TaskModel>> streamTasks(String coupleId) {
+    return _tasksRef(coupleId)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((s) => s.docs.map((d) => TaskModel.fromFirestore(d)).toList());
+  }
+
+  Future<String> addTask(String coupleId, TaskModel task) async {
+    final ref = await _tasksRef(coupleId).add(task.toFirestore());
+    return ref.id;
+  }
+
+  Future<void> toggleTask(String coupleId, String taskId, bool isDone) async {
+    await _tasksRef(coupleId).doc(taskId).update({'isDone': isDone});
+  }
+
+  Future<void> deleteTask(String coupleId, String taskId) async {
+    await _tasksRef(coupleId).doc(taskId).delete();
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  // QUIZ
+  // ─────────────────────────────────────────────────────────────────
+
+  CollectionReference _quizRef(String coupleId) => _db
+      .collection(AppConstants.couplesCollection)
+      .doc(coupleId)
+      .collection(AppConstants.quizCollection);
+
+  Stream<List<QuizModel>> streamQuiz(String coupleId) {
+    return _quizRef(coupleId)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((s) => s.docs.map((d) => QuizModel.fromFirestore(d)).toList());
+  }
+
+  Future<void> addQuiz(String coupleId, QuizModel quiz) async {
+    await _quizRef(coupleId).add(quiz.toFirestore());
+  }
+
+  Future<void> answerQuiz({
+    required String coupleId,
+    required String quizId,
+    required String answeredBy,
+    required String userAnswer,
+    required String correctAnswer,
+  }) async {
+    final isCorrect =
+        userAnswer.trim().toLowerCase() == correctAnswer.trim().toLowerCase();
+    await _quizRef(coupleId).doc(quizId).update({
+      'answeredBy': answeredBy,
+      'userAnswer': userAnswer,
+      'isCorrect': isCorrect,
+    });
+  }
+
+  Future<void> deleteQuiz(String coupleId, String quizId) async {
+    await _quizRef(coupleId).doc(quizId).delete();
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  // FAMILY
+  // ─────────────────────────────────────────────────────────────────
+
+  CollectionReference _familyRef(String coupleId) => _db
+      .collection(AppConstants.couplesCollection)
+      .doc(coupleId)
+      .collection(AppConstants.familyCollection);
+
+  Stream<List<FamilyMember>> streamFamily(String coupleId) {
+    return _familyRef(coupleId)
+        .orderBy('name')
+        .snapshots()
+        .map((s) => s.docs.map((d) => FamilyMember.fromFirestore(d)).toList());
+  }
+
+  Future<void> addFamilyMember(String coupleId, FamilyMember member) async {
+    await _familyRef(coupleId).add(member.toFirestore());
+  }
+
+  Future<void> deleteFamilyMember(
+      String coupleId, String memberId) async {
+    await _familyRef(coupleId).doc(memberId).delete();
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  // HELPERS
+  // ─────────────────────────────────────────────────────────────────
+
+  String _randomSixDigits() {
+    final rng = Random.secure();
+    return (rng.nextInt(900000) + 100000).toString();
+  }
+
+  String generateTestCode() => _randomSixDigits();
+}
