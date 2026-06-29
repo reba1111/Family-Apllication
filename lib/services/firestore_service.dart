@@ -65,14 +65,16 @@ class FirestoreService {
 
     batch.update(coupleDoc.reference, {'user2Id': user2Id});
 
-    batch.update(
+    batch.set(
       _db.collection(AppConstants.usersCollection).doc(user1Id),
       {'coupleId': coupleId, 'partnerId': user2Id},
+      SetOptions(merge: true),
     );
 
-    batch.update(
+    batch.set(
       _db.collection(AppConstants.usersCollection).doc(user2Id),
       {'coupleId': coupleId, 'partnerId': user1Id},
+      SetOptions(merge: true),
     );
 
     await batch.commit();
