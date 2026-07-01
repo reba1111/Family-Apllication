@@ -116,6 +116,37 @@ class FirestoreService {
     });
   }
 
+  Future<void> updateLocation(String uid, double lat, double lng, String status) async {
+    final now = Timestamp.now();
+    final newEntry = {
+      'lat': lat,
+      'lng': lng,
+      'status': status,
+      'createdAt': now,
+    };
+
+    final userRef = _db.collection(AppConstants.usersCollection).doc(uid);
+
+    // Read current history from user doc, prepend new entry, keep max 5
+    final docSnap = await userRef.get();
+    final data = docSnap.data() as Map<String, dynamic>? ?? {};
+    final histRaw = data['locationHistory'];
+    final List<Map<String, dynamic>> history = histRaw is List
+        ? histRaw.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList()
+        : [];
+
+    history.insert(0, newEntry);
+    final trimmed = history.take(5).toList(); // keep only last 5
+
+    await userRef.update({
+      'lastLocationLat': lat,
+      'lastLocationLng': lng,
+      'locationStatus': status,
+      'locationUpdatedAt': now,
+      'locationHistory': trimmed,
+    });
+  }
+
   // ─────────────────────────────────────────────────────────────────
   // LESSONS
   // ─────────────────────────────────────────────────────────────────
@@ -309,6 +340,63 @@ class FirestoreService {
 
   Future<void> markNoteAsRead(String coupleId, String noteId) async {
     await _notesRef(coupleId).doc(noteId).update({'isRead': true});
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  // GOALS (Shared Goals & Savings)
+  // ─────────────────────────────────────────────────────────────────
+
+  CollectionReference _goalsRef(String coupleId) => _db
+      .collection(AppConstants.couplesCollection)
+      .doc(coupleId)
+      .collection('goals');
+
+  Stream<List<GoalModel>> streamGoals(String coupleId) {
+    return _goalsRef(coupleId)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((s) => s.docs.map((d) => GoalModel.fromFirestore(d)).toList());
+  }
+
+  Future<void> addGoal(String coupleId, GoalModel goal) async {
+    await _goalsRef(coupleId).add(goal.toFirestore());
+  }
+
+  Future<void> updateGoal(String coupleId, String goalId, GoalModel goal) async {
+    await _goalsRef(coupleId).doc(goalId).update(goal.toFirestore());
+  }
+
+  Future<void> deleteGoal(String coupleId, String goalId) async {
+    await _goalsRef(coupleId).doc(goalId).delete();
+  }
+
+  Future<void> addFundsToGoal(String coupleId, String goalId, double amountToAdd, String userId) async {
+    final batch = _db.batch();
+    
+    final goalRef = _goalsRef(coupleId).doc(goalId);
+    batch.update(goalRef, {
+      'currentAmount': FieldValue.increment(amountToAdd),
+    });
+
+    final txRef = goalRef.collection('transactions').doc();
+    final transaction = GoalTransactionModel(
+      id: txRef.id,
+      amount: amountToAdd,
+      userId: userId,
+      createdAt: DateTime.now(),
+    );
+    batch.set(txRef, transaction.toFirestore());
+
+    await batch.commit();
+  }
+
+  Stream<List<GoalTransactionModel>> streamGoalTransactions(String coupleId, String goalId) {
+    return _goalsRef(coupleId)
+        .doc(goalId)
+        .collection('transactions')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((s) => s.docs.map((d) => GoalTransactionModel.fromFirestore(d)).toList());
   }
 
   // ─────────────────────────────────────────────────────────────────

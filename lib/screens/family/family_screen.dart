@@ -19,6 +19,8 @@ class _FamilyScreenState extends State<FamilyScreen> {
   void _showAddEditDialog({FamilyMember? editMember}) {
     final nameCtrl = TextEditingController(text: editMember?.name ?? '');
     final relationCtrl = TextEditingController(text: editMember?.relation ?? '');
+    final phoneCtrl = TextEditingController(text: editMember?.phone ?? '');
+    final noteCtrl = TextEditingController(text: editMember?.note ?? '');
     DateTime? birthday = editMember?.birthday;
 
     showModalBottomSheet(
@@ -93,6 +95,22 @@ class _FamilyScreenState extends State<FamilyScreen> {
                   ),
                 ),
               ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: phoneCtrl,
+                keyboardType: TextInputType.phone,
+                style: TextStyle(color: AppTheme.onSurface),
+                decoration: const InputDecoration(
+                    hintText: 'ژمارەی مۆبایل (ئارەزووی)'),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: noteCtrl,
+                maxLines: 2,
+                style: TextStyle(color: AppTheme.onSurface),
+                decoration: const InputDecoration(
+                    hintText: 'تێبینی (کار، داهات، ئادرەس...) (ئارەزووی)'),
+              ),
               const SizedBox(height: 24),
                   Row(
                     children: [
@@ -107,6 +125,8 @@ class _FamilyScreenState extends State<FamilyScreen> {
                               birthday: birthday,
                               addedBy: editMember?.addedBy ??
                                   FirebaseAuth.instance.currentUser?.uid ?? '',
+                              phone: phoneCtrl.text.trim().isEmpty ? null : phoneCtrl.text.trim(),
+                              note: noteCtrl.text.trim().isEmpty ? null : noteCtrl.text.trim(),
                             );
                             if (editMember != null) {
                               await _fs.updateFamilyMember(widget.coupleId, editMember.id, member.toFirestore());

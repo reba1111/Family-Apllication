@@ -11,6 +11,8 @@ import '../widgets/mood_tracker_widget.dart';
 
 import '../../memories/memories_screen.dart';
 import '../../notes/notes_screen.dart';
+import '../../goals/goals_screen.dart';
+import '../widgets/safe_location_widget.dart';
 
 class DashboardTab extends StatelessWidget {
   final UserModel user;
@@ -80,6 +82,15 @@ class DashboardTab extends StatelessWidget {
                 partnerId: user.partnerId,
               ),
               const SizedBox(height: 28),
+
+              // Safe Location Widget
+              if (linked) ...[
+                SafeLocationWidget(
+                  currentUserId: user.uid,
+                  partnerId: user.partnerId,
+                ),
+                const SizedBox(height: 28),
+              ],
 
               // Not linked warning
               if (!linked)
@@ -172,7 +183,7 @@ class DashboardTab extends StatelessWidget {
                       ),
                     ),
                     _FeatureCard(
-                      emoji: '👨‍👩‍👧',
+                      emoji: '🏡', // Changed from 👨‍👩‍👧
                       title: 'خێزان',
                       subtitle: 'ئەندامانی خێزان',
                       color: const Color(0xFF9C27B0),
@@ -185,7 +196,7 @@ class DashboardTab extends StatelessWidget {
                     ),
                     _FeatureCard(
                       emoji: '❓',
-                      title: 'کوئیز',
+                      title: 'تاقیکردنەوە', // Changed from کوئیز
                       subtitle: 'پرسیار لە یەکتر بکەن',
                       color: const Color(0xFF2196F3),
                       onTap: () => Navigator.of(context).push(
@@ -206,6 +217,20 @@ class DashboardTab extends StatelessWidget {
                         MaterialPageRoute(
                           builder: (_) =>
                               AiSuggestionsScreen(me: user),
+                        ),
+                      ),
+                    ),
+                    _FeatureCard(
+                      emoji: '🎯',
+                      title: 'ئامانجەکان',
+                      subtitle: 'کۆکردنەوەی پارە بەیکەوە',
+                      color: const Color(0xFF4CAF50),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => GoalsScreen(
+                            coupleId: user.coupleId!,
+                            currentUserId: user.uid,
+                          ),
                         ),
                       ),
                     ),

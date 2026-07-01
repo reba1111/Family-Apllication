@@ -159,6 +159,8 @@ class FamilyMember {
   final String relation;
   final DateTime? birthday;
   final String addedBy;
+  final String? phone;
+  final String? note;
 
   const FamilyMember({
     required this.id,
@@ -166,6 +168,8 @@ class FamilyMember {
     required this.relation,
     this.birthday,
     required this.addedBy,
+    this.phone,
+    this.note,
   });
 
   factory FamilyMember.fromFirestore(DocumentSnapshot doc) {
@@ -176,6 +180,8 @@ class FamilyMember {
       relation: data['relation'] ?? '',
       birthday: (data['birthday'] as Timestamp?)?.toDate(),
       addedBy: data['addedBy'] ?? '',
+      phone: data['phone'],
+      note: data['note'],
     );
   }
 
@@ -184,6 +190,8 @@ class FamilyMember {
         'relation': relation,
         'birthday': birthday != null ? Timestamp.fromDate(birthday!) : null,
         'addedBy': addedBy,
+        if (phone != null && phone!.isNotEmpty) 'phone': phone,
+        if (note != null && note!.isNotEmpty) 'note': note,
       };
 }
 
@@ -297,4 +305,108 @@ class NoteModel {
       createdAt: createdAt,
     );
   }
+}
+
+class GoalModel {
+  final String id;
+  final String title;
+  final double targetAmount;
+  final double currentAmount;
+  final String icon; // Emoji icon
+  final DateTime targetDate;
+  final String currency; // "$" or "IQD"
+  final String createdBy;
+  final DateTime createdAt;
+
+  const GoalModel({
+    required this.id,
+    required this.title,
+    required this.targetAmount,
+    this.currentAmount = 0.0,
+    required this.icon,
+    required this.targetDate,
+    this.currency = '\$', // Default to USD for old entries
+    required this.createdBy,
+    required this.createdAt,
+  });
+
+  bool get isCompleted => currentAmount >= targetAmount;
+  double get progress => targetAmount > 0 ? (currentAmount / targetAmount).clamp(0.0, 1.0) : 0.0;
+
+  factory GoalModel.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return GoalModel(
+      id: doc.id,
+      title: data['title'] ?? '',
+      targetAmount: (data['targetAmount'] ?? 0).toDouble(),
+      currentAmount: (data['currentAmount'] ?? 0).toDouble(),
+      icon: data['icon'] ?? '🎯',
+      targetDate: (data['targetDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      currency: data['currency'] ?? '\$',
+      createdBy: data['createdBy'] ?? '',
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+    );
+  }
+
+  Map<String, dynamic> toFirestore() => {
+        'title': title,
+        'targetAmount': targetAmount,
+        'currentAmount': currentAmount,
+        'icon': icon,
+        'targetDate': Timestamp.fromDate(targetDate),
+        'currency': currency,
+        'createdBy': createdBy,
+        'createdAt': Timestamp.fromDate(createdAt),
+      };
+
+  GoalModel copyWith({
+    String? title,
+    double? targetAmount,
+    double? currentAmount,
+    String? icon,
+    DateTime? targetDate,
+    String? currency,
+  }) {
+    return GoalModel(
+      id: id,
+      title: title ?? this.title,
+      targetAmount: targetAmount ?? this.targetAmount,
+      currentAmount: currentAmount ?? this.currentAmount,
+      icon: icon ?? this.icon,
+      targetDate: targetDate ?? this.targetDate,
+      currency: currency ?? this.currency,
+      createdBy: createdBy,
+      createdAt: createdAt,
+    );
+  }
+}
+
+class GoalTransactionModel {
+  final String id;
+  final double amount;
+  final String userId;
+  final DateTime createdAt;
+
+  const GoalTransactionModel({
+    required this.id,
+    required this.amount,
+    required this.userId,
+    required this.createdAt,
+  });
+
+  factory GoalTransactionModel.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return GoalTransactionModel(
+      id: doc.id,
+      amount: (data['amount'] ?? 0).toDouble(),
+      userId: data['userId'] ?? '',
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+    );
+  }
+
+  Map<String, dynamic> toFirestore() => {
+        'amount': amount,
+        'userId': userId,
+        'createdAt': Timestamp.fromDate(createdAt),
+      };
 }

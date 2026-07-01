@@ -217,7 +217,7 @@ class _QuizScreenState extends State<QuizScreen>
                           color: AppTheme.onSurface),
                       onPressed: () => Navigator.pop(context),
                     ),
-                    Text('کوئیز ❓', style: AppTheme.headlineMedium),
+                    Text('تاقیکردنەوە ❓', style: AppTheme.headlineMedium),
                   ],
                 ),
               ),
