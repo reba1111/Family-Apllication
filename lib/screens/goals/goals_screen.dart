@@ -294,7 +294,17 @@ class _GoalCard extends StatelessWidget {
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary),
               onPressed: () async {
-                final amount = double.tryParse(controller.text.trim());
+                // Replace Arabic/Persian numerals and remove commas
+                String text = controller.text.trim().replaceAll(',', '');
+                const english = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+                const arabic = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+                const persian = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+                for (int i = 0; i < 10; i++) {
+                  text = text.replaceAll(arabic[i], english[i]);
+                  text = text.replaceAll(persian[i], english[i]);
+                }
+                
+                final amount = double.tryParse(text);
                 if (amount != null && amount > 0) {
                   Navigator.pop(context);
                   await fs.addFundsToGoal(coupleId, goal.id, amount, currentUserId);

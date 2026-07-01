@@ -44,81 +44,97 @@ class _QuizScreenState extends State<QuizScreen>
       builder: (ctx) => Padding(
         padding: EdgeInsets.fromLTRB(
             24, 24, 24, MediaQuery.of(ctx).viewInsets.bottom + 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(editQuiz == null ? 'پرسیاری نوێ ❓' : 'دەستکاریکردنی پرسیار ❓', style: AppTheme.headlineMedium),
-            const SizedBox(height: 20),
-            TextField(
-              controller: qCtrl,
-              style: TextStyle(color: AppTheme.onSurface),
-              decoration: const InputDecoration(
-                  hintText: 'پرسیارەکە بنووسە...'),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: aCtrl,
-              style: TextStyle(color: AppTheme.onSurface),
-              decoration: const InputDecoration(
-                  hintText: 'وەڵامەکە (تا کاتی دیاریکردن نادرێت)'),
-            ),
-            const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () async {
-                            if (qCtrl.text.trim().isEmpty ||
-                                aCtrl.text.trim().isEmpty) return;
-                            final quiz = QuizModel(
-                              id: editQuiz?.id ?? '',
-                              question: qCtrl.text.trim(),
-                              answer: aCtrl.text.trim(),
-                              createdBy: widget.currentUserId,
-                              createdAt: editQuiz?.createdAt ?? DateTime.now(),
-                              answeredBy: editQuiz?.answeredBy,
-                              userAnswer: editQuiz?.userAnswer,
-                              isCorrect: editQuiz?.isCorrect,
-                            );
-                            if (editQuiz != null) {
-                              await _fs.updateQuiz(widget.coupleId, editQuiz.id, quiz.toFirestore());
-                            } else {
-                              await _fs.addQuiz(widget.coupleId, quiz);
-                            }
-                            if (ctx.mounted) Navigator.pop(ctx);
-                          },
-                          child: Text(editQuiz == null ? 'زیادکردن' : 'پاشەکەوتکردن'),
-                        ),
-                      ),
-                      if (editQuiz != null) ...[
-                        const SizedBox(width: 12),
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline, color: AppTheme.error),
-                          onPressed: () async {
-                            final confirm = await showDialog<bool>(
-                              context: ctx,
-                              builder: (c) => AlertDialog(
-                                backgroundColor: AppTheme.surface,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                                title: Text('سڕینەوە', style: AppTheme.titleLarge),
-                                content: Text('دڵنیایت لە سڕینەوەی ئەم پرسیارە؟', style: AppTheme.bodyLarge),
-                                actions: [
-                                  TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('نەخێر', style: TextStyle(color: AppTheme.onSurfaceMuted))),
-                                  TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('بەڵێ، بسڕەوە', style: TextStyle(color: AppTheme.error))),
-                                ],
-                              ),
-                            );
-                            if (confirm == true) {
-                              await _fs.deleteQuiz(widget.coupleId, editQuiz.id);
-                              if (ctx.mounted) Navigator.pop(ctx);
-                            }
-                          },
-                        ),
-                      ],
-                    ],
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                editQuiz == null ? 'پرسیاری نوێ ❓' : 'دەستکاریکردنی پرسیار ❓',
+                style: AppTheme.headlineMedium,
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: qCtrl,
+                style: TextStyle(color: AppTheme.onSurface),
+                decoration: const InputDecoration(hintText: 'پرسیارەکە بنووسە...'),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: aCtrl,
+                style: TextStyle(color: AppTheme.onSurface),
+                decoration: const InputDecoration(
+                    hintText: 'وەڵامەکە (تا کاتی دیاریکردن نادرێت)'),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        if (qCtrl.text.trim().isEmpty ||
+                            aCtrl.text.trim().isEmpty) {
+                          return;
+                        }
+                        final quiz = QuizModel(
+                          id: editQuiz?.id ?? '',
+                          question: qCtrl.text.trim(),
+                          answer: aCtrl.text.trim(),
+                          createdBy: widget.currentUserId,
+                          createdAt: editQuiz?.createdAt ?? DateTime.now(),
+                          answeredBy: editQuiz?.answeredBy,
+                          userAnswer: editQuiz?.userAnswer,
+                          isCorrect: editQuiz?.isCorrect,
+                        );
+                        if (editQuiz != null) {
+                          await _fs.updateQuiz(
+                              widget.coupleId, editQuiz.id, quiz.toFirestore());
+                        } else {
+                          await _fs.addQuiz(widget.coupleId, quiz);
+                        }
+                        if (ctx.mounted) Navigator.pop(ctx);
+                      },
+                      child: Text(editQuiz == null ? 'زیادکردن' : 'پاشەکەوتکردن'),
+                    ),
                   ),
-          ],
+                  if (editQuiz != null) ...[
+                    const SizedBox(width: 12),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline, color: AppTheme.error),
+                      onPressed: () async {
+                        final confirm = await showDialog<bool>(
+                          context: ctx,
+                          builder: (c) => AlertDialog(
+                            backgroundColor: AppTheme.surface,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20)),
+                            title: Text('سڕینەوە', style: AppTheme.titleLarge),
+                            content: Text('دڵنیایت لە سڕینەوەی ئەم پرسیارە؟',
+                                style: AppTheme.bodyLarge),
+                            actions: [
+                              TextButton(
+                                  onPressed: () => Navigator.pop(c, false),
+                                  child: const Text('نەخێر',
+                                      style: TextStyle(
+                                          color: AppTheme.onSurfaceMuted))),
+                              TextButton(
+                                  onPressed: () => Navigator.pop(c, true),
+                                  child: const Text('بەڵێ، بسڕەوە',
+                                      style: TextStyle(color: AppTheme.error))),
+                            ],
+                          ),
+                        );
+                        if (confirm == true) {
+                          await _fs.deleteQuiz(widget.coupleId, editQuiz.id);
+                          if (ctx.mounted) Navigator.pop(ctx);
+                        }
+                      },
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -127,17 +143,15 @@ class _QuizScreenState extends State<QuizScreen>
   void _showAnswer(QuizModel quiz) {
     if (quiz.createdBy == widget.currentUserId) {
       if (quiz.answeredBy == null) {
-        // Creator can edit unanswered quiz
         _showAddEditQuiz(editQuiz: quiz);
         return;
       }
-      // Creator sees the answer for answered quiz
       showDialog(
         context: context,
         builder: (_) => AlertDialog(
           backgroundColor: AppTheme.surface,
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: Text('وەڵامەکە', style: AppTheme.titleLarge),
           content: Text(quiz.answer,
               style: AppTheme.bodyLarge.copyWith(color: AppTheme.primary)),
@@ -151,7 +165,6 @@ class _QuizScreenState extends State<QuizScreen>
         ),
       );
     } else {
-      // Partner answers
       final ansCtrl = TextEditingController();
       showModalBottomSheet(
         context: context,
@@ -163,36 +176,38 @@ class _QuizScreenState extends State<QuizScreen>
         builder: (ctx) => Padding(
           padding: EdgeInsets.fromLTRB(
               24, 24, 24, MediaQuery.of(ctx).viewInsets.bottom + 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('وەڵامی پرسیار', style: AppTheme.headlineMedium),
-              const SizedBox(height: 8),
-              Text(quiz.question, style: AppTheme.bodyLarge),
-              const SizedBox(height: 20),
-              TextField(
-                controller: ansCtrl,
-                style: TextStyle(color: AppTheme.onSurface),
-                decoration:
-                    const InputDecoration(hintText: 'وەڵامەکەت بنووسە...'),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: () async {
-                  if (ansCtrl.text.trim().isEmpty) return;
-                  await _fs.answerQuiz(
-                    coupleId: widget.coupleId,
-                    quizId: quiz.id,
-                    answeredBy: widget.currentUserId,
-                    userAnswer: ansCtrl.text.trim(),
-                    correctAnswer: quiz.answer,
-                  );
-                  if (ctx.mounted) Navigator.pop(ctx);
-                },
-                child: const Text('ناردنی وەڵام'),
-              ),
-            ],
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('وەڵامی پرسیار', style: AppTheme.headlineMedium),
+                const SizedBox(height: 8),
+                Text(quiz.question, style: AppTheme.bodyLarge),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: ansCtrl,
+                  style: TextStyle(color: AppTheme.onSurface),
+                  decoration:
+                      const InputDecoration(hintText: 'وەڵامەکەت بنووسە...'),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: () async {
+                    if (ansCtrl.text.trim().isEmpty) return;
+                    await _fs.answerQuiz(
+                      coupleId: widget.coupleId,
+                      quizId: quiz.id,
+                      answeredBy: widget.currentUserId,
+                      userAnswer: ansCtrl.text.trim(),
+                      correctAnswer: quiz.answer,
+                    );
+                    if (ctx.mounted) Navigator.pop(ctx);
+                  },
+                  child: const Text('ناردنی وەڵام'),
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -221,7 +236,6 @@ class _QuizScreenState extends State<QuizScreen>
                   ],
                 ),
               ),
-              // Tab bar
               Container(
                 margin: const EdgeInsets.fromLTRB(20, 12, 20, 0),
                 decoration: BoxDecoration(
@@ -256,12 +270,10 @@ class _QuizScreenState extends State<QuizScreen>
                     }
                     final all = snap.data ?? [];
                     final mine = all
-                        .where(
-                            (q) => q.createdBy == widget.currentUserId)
+                        .where((q) => q.createdBy == widget.currentUserId)
                         .toList();
                     final theirs = all
-                        .where(
-                            (q) => q.createdBy != widget.currentUserId)
+                        .where((q) => q.createdBy != widget.currentUserId)
                         .toList();
 
                     return TabBarView(
@@ -294,8 +306,8 @@ class _QuizScreenState extends State<QuizScreen>
         onPressed: () => _showAddEditQuiz(),
         backgroundColor: AppTheme.primary,
         icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text('پرسیاری نوێ',
-            style: TextStyle(color: Colors.white)),
+        label:
+            const Text('پرسیاری نوێ', style: TextStyle(color: Colors.white)),
       ),
     );
   }
@@ -315,6 +327,31 @@ class _QuizList extends StatelessWidget {
     required this.fs,
     required this.onTap,
   });
+
+  Future<bool?> _confirmDelete(BuildContext context) {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('سڕینەوە', style: AppTheme.titleLarge),
+        content: Text('دڵنیایت لە سڕینەوەی ئەم پرسیارە؟',
+            style: AppTheme.bodyLarge),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('نەخێر',
+                style: TextStyle(color: AppTheme.onSurfaceMuted)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('بەڵێ، بسڕەوە',
+                style: TextStyle(color: AppTheme.error)),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -351,30 +388,10 @@ class _QuizList extends StatelessWidget {
         if (answered) {
           statusColor = correct ? AppTheme.success : AppTheme.error;
           statusLabel = correct ? 'وەڵامی دروست ✓' : 'وەڵامی هەڵە ✗';
-          statusIcon = correct ? Icons.check_circle_outline : Icons.cancel_outlined;
+          statusIcon = correct
+              ? Icons.check_circle_outline
+              : Icons.cancel_outlined;
         }
-
-  Future<bool?> _confirmDelete(BuildContext context) {
-    return showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('سڕینەوە', style: AppTheme.titleLarge),
-        content: Text('دڵنیایت لە سڕینەوەی ئەم پرسیارە؟', style: AppTheme.bodyLarge),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('نەخێر', style: TextStyle(color: AppTheme.onSurfaceMuted)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('بەڵێ، بسڕەوە', style: TextStyle(color: AppTheme.error)),
-          ),
-        ],
-      ),
-    );
-  }
 
         return Dismissible(
           key: ValueKey(q.id),
@@ -386,7 +403,7 @@ class _QuizList extends StatelessWidget {
             padding: const EdgeInsets.only(right: 20),
             margin: const EdgeInsets.only(bottom: 12),
             decoration: BoxDecoration(
-              color: AppTheme.error.withOpacity(0.2),
+              color: AppTheme.error.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(16),
             ),
             child: const Icon(Icons.delete_outline, color: AppTheme.error),
@@ -401,7 +418,7 @@ class _QuizList extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
                   color: answered
-                      ? statusColor.withOpacity(0.4)
+                      ? statusColor.withValues(alpha: 0.4)
                       : const Color(0xFF2A2A40),
                 ),
               ),
@@ -410,8 +427,7 @@ class _QuizList extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      const Text('❓',
-                          style: TextStyle(fontSize: 20)),
+                      const Text('❓', style: TextStyle(fontSize: 20)),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(q.question,
@@ -439,10 +455,10 @@ class _QuizList extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: AppTheme.primary.withOpacity(0.15),
+                            color: AppTheme.primary.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                                color: AppTheme.primary.withOpacity(0.4)),
+                                color: AppTheme.primary.withValues(alpha: 0.4)),
                           ),
                           child: Text('وەڵامبدەوە',
                               style: AppTheme.bodyMedium.copyWith(

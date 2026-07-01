@@ -34,10 +34,11 @@ class _FamilyScreenState extends State<FamilyScreen> {
         builder: (ctx, setModal) => Padding(
           padding: EdgeInsets.fromLTRB(
               24, 24, 24, MediaQuery.of(ctx).viewInsets.bottom + 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
               Text(editMember == null ? 'زیادکردنی ئەندامی خێزان' : 'دەستکاریکردنی ئەندامی خێزان',
                   style: AppTheme.headlineMedium),
               const SizedBox(height: 20),
@@ -165,7 +166,8 @@ class _FamilyScreenState extends State<FamilyScreen> {
                       ],
                     ],
                   ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -266,7 +268,7 @@ class _FamilyScreenState extends State<FamilyScreen> {
                             padding: const EdgeInsets.only(right: 20),
                             margin: const EdgeInsets.only(bottom: 12),
                             decoration: BoxDecoration(
-                              color: AppTheme.error.withOpacity(0.2),
+                              color: AppTheme.success.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(16),
                             ),
                             child: const Icon(Icons.delete_outline,
@@ -290,8 +292,7 @@ class _FamilyScreenState extends State<FamilyScreen> {
                                     width: 48,
                                     height: 48,
                                     decoration: BoxDecoration(
-                                      color:
-                                          AppTheme.primary.withOpacity(0.15),
+                                      color: AppTheme.primary.withValues(alpha: 0.15),
                                       shape: BoxShape.circle,
                                     ),
                                     child: Center(
