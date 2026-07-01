@@ -2,25 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
-import '../../../core/theme.dart';
-import '../../../models/user_model.dart';
-import '../../../services/firestore_service.dart';
+import '../../core/theme.dart';
+import '../../models/user_model.dart';
+import '../../services/firestore_service.dart';
 
-class SafeLocationWidget extends StatefulWidget {
+class LocationScreen extends StatefulWidget {
   final String currentUserId;
   final String? partnerId;
 
-  const SafeLocationWidget({
+  const LocationScreen({
     super.key,
     required this.currentUserId,
     this.partnerId,
   });
 
   @override
-  State<SafeLocationWidget> createState() => _SafeLocationWidgetState();
+  State<LocationScreen> createState() => _LocationScreenState();
 }
 
-class _SafeLocationWidgetState extends State<SafeLocationWidget> {
+class _LocationScreenState extends State<LocationScreen> {
   final fs = FirestoreService();
   bool _isLoading = false;
 
@@ -94,11 +94,18 @@ class _SafeLocationWidgetState extends State<SafeLocationWidget> {
   Widget build(BuildContext context) {
     final hasPartner = widget.partnerId != null;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('سەلامەتی و لۆکەیشن', style: AppTheme.headlineMedium),
-        const SizedBox(height: 16),
+    return Scaffold(
+      backgroundColor: AppTheme.background,
+      appBar: AppBar(
+        title: const Text('سەلامەتی و لۆکەیشن'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
         
         // Custom Tab Selector
         if (hasPartner)
@@ -274,33 +281,33 @@ class _SafeLocationWidgetState extends State<SafeLocationWidget> {
                       child: Text('مێژووی لۆکەیشن', style: AppTheme.bodyMedium.copyWith(fontSize: 12, color: Colors.white54)),
                     ),
                     ...partner.locationHistory.skip(1).map((entry) {
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 6),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: AppTheme.surface,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.history, size: 16, color: Colors.white38),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                entry.status,
-                                style: const TextStyle(color: Colors.white70, fontSize: 13),
+                      return GestureDetector(
+                        onTap: () => _openMaps(entry.lat, entry.lng),
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: AppTheme.surface,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.history, size: 16, color: Colors.white38),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  entry.status,
+                                  style: const TextStyle(color: Colors.white70, fontSize: 13),
+                                ),
                               ),
-                            ),
-                            Text(
-                              _getTimeAgo(entry.createdAt),
-                              style: const TextStyle(color: Colors.white38, fontSize: 11),
-                            ),
-                            const SizedBox(width: 8),
-                            GestureDetector(
-                              onTap: () => _openMaps(entry.lat, entry.lng),
-                              child: const Icon(Icons.location_on, size: 16, color: Colors.white38),
-                            ),
-                          ],
+                              Text(
+                                _getTimeAgo(entry.createdAt),
+                                style: const TextStyle(color: Colors.white38, fontSize: 11),
+                              ),
+                              const SizedBox(width: 8),
+                              const Icon(Icons.open_in_new, size: 16, color: Colors.white38),
+                            ],
+                          ),
                         ),
                       );
                     }),
@@ -309,7 +316,9 @@ class _SafeLocationWidgetState extends State<SafeLocationWidget> {
               );
             },
           ),
-      ],
+          ],
+        ),
+      ),
     );
   }
 

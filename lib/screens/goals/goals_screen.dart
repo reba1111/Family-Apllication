@@ -303,9 +303,11 @@ class _GoalCard extends StatelessWidget {
                   text = text.replaceAll(arabic[i], english[i]);
                   text = text.replaceAll(persian[i], english[i]);
                 }
+                // Strip everything except digits and dots
+                text = text.replaceAll(RegExp(r'[^0-9.]'), '');
                 
                 // Remove dots if they are used as thousands separator
-                if (text.split('.').length > 2) {
+                if (text.split('.').length > 2 || RegExp(r'\.\d{3}$').hasMatch(text)) {
                   text = text.replaceAll('.', '');
                 }
 
