@@ -6,9 +6,11 @@ class UserModel {
   final String displayName;
   final String? coupleId;
   final String? partnerId;
-  final List<String> likes;
-  final List<String> dislikes;
+  final Map<String, List<String>> likes;
+  final Map<String, List<String>> dislikes;
   final DateTime createdAt;
+  final String? currentMood;
+  final DateTime? moodUpdatedAt;
 
   const UserModel({
     required this.uid,
@@ -16,10 +18,25 @@ class UserModel {
     required this.displayName,
     this.coupleId,
     this.partnerId,
-    this.likes = const [],
-    this.dislikes = const [],
+    this.likes = const {},
+    this.dislikes = const {},
     required this.createdAt,
+    this.currentMood,
+    this.moodUpdatedAt,
   });
+
+  static Map<String, List<String>> _parseCategorizedList(dynamic data) {
+    if (data == null) return {};
+    if (data is List) {
+      // Legacy format fallback
+      return {'گشتی': List<String>.from(data)};
+    }
+    if (data is Map) {
+      return data.map((key, value) =>
+          MapEntry(key.toString(), List<String>.from(value as List)));
+    }
+    return {};
+  }
 
   factory UserModel.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
@@ -29,9 +46,11 @@ class UserModel {
       displayName: data['displayName'] ?? '',
       coupleId: data['coupleId'],
       partnerId: data['partnerId'],
-      likes: List<String>.from(data['likes'] ?? []),
-      dislikes: List<String>.from(data['dislikes'] ?? []),
+      likes: _parseCategorizedList(data['likes']),
+      dislikes: _parseCategorizedList(data['dislikes']),
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      currentMood: data['currentMood'],
+      moodUpdatedAt: (data['moodUpdatedAt'] as Timestamp?)?.toDate(),
     );
   }
 
@@ -43,14 +62,18 @@ class UserModel {
         'likes': likes,
         'dislikes': dislikes,
         'createdAt': Timestamp.fromDate(createdAt),
+        if (currentMood != null) 'currentMood': currentMood,
+        if (moodUpdatedAt != null) 'moodUpdatedAt': Timestamp.fromDate(moodUpdatedAt!),
       };
 
   UserModel copyWith({
     String? displayName,
     String? coupleId,
     String? partnerId,
-    List<String>? likes,
-    List<String>? dislikes,
+    Map<String, List<String>>? likes,
+    Map<String, List<String>>? dislikes,
+    String? currentMood,
+    DateTime? moodUpdatedAt,
   }) {
     return UserModel(
       uid: uid,
@@ -61,6 +84,8 @@ class UserModel {
       likes: likes ?? this.likes,
       dislikes: dislikes ?? this.dislikes,
       createdAt: createdAt,
+      currentMood: currentMood ?? this.currentMood,
+      moodUpdatedAt: moodUpdatedAt ?? this.moodUpdatedAt,
     );
   }
 }

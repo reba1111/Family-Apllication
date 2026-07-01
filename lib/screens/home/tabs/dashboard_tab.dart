@@ -7,6 +7,11 @@ import '../../family/family_screen.dart';
 import '../../quiz/quiz_screen.dart';
 import '../../likes/likes_screen.dart';
 
+import '../widgets/mood_tracker_widget.dart';
+
+import '../../memories/memories_screen.dart';
+import '../../notes/notes_screen.dart';
+
 class DashboardTab extends StatelessWidget {
   final UserModel user;
   const DashboardTab({super.key, required this.user});
@@ -69,6 +74,13 @@ class DashboardTab extends StatelessWidget {
               ),
               const SizedBox(height: 28),
 
+              // Mood Tracker
+              MoodTrackerWidget(
+                currentUserId: user.uid,
+                partnerId: user.partnerId,
+              ),
+              const SizedBox(height: 28),
+
               // Not linked warning
               if (!linked)
                 Container(
@@ -123,6 +135,28 @@ class DashboardTab extends StatelessWidget {
                   mainAxisSpacing: 14,
                   childAspectRatio: 1.1,
                   children: [
+                    _FeatureCard(
+                      emoji: '💌',
+                      title: 'نامەی شاراوە',
+                      subtitle: 'نامەی قفڵکراو بنێرە',
+                      color: const Color(0xFFF44336),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => NotesScreen(me: user),
+                        ),
+                      ),
+                    ),
+                    _FeatureCard(
+                      emoji: '📸',
+                      title: 'یادگارییەکان',
+                      subtitle: 'ئەلبوومی تایبەت',
+                      color: const Color(0xFFFF9800),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => MemoriesScreen(me: user),
+                        ),
+                      ),
+                    ),
                     _FeatureCard(
                       emoji: '❤️',
                       title: 'حەزەکانم',

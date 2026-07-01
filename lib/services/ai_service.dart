@@ -1,11 +1,18 @@
 import 'package:google_generative_ai/google_generative_ai.dart';
 import '../core/secrets.dart';
 
-/// Result from the AI service.
 class AiResult {
   final String giftIdeas;
   final String dateIdeas;
-  AiResult({required this.giftIdeas, required this.dateIdeas});
+  final String conversationIdeas;
+  final String entertainmentIdeas;
+
+  AiResult({
+    required this.giftIdeas,
+    required this.dateIdeas,
+    required this.conversationIdeas,
+    required this.entertainmentIdeas,
+  });
 }
 
 class AiService {
@@ -18,69 +25,93 @@ class AiService {
   /// - Email addresses
   /// - Phone numbers
   /// - Anything that is purely numeric and long
-  static List<String> _sanitize(List<String> items) {
+  static Map<String, List<String>> _sanitize(Map<String, List<String>> items) {
     final _idPattern = RegExp(r'^[a-zA-Z0-9]{20,}$');
     final _emailPattern = RegExp(r'[\w.]+@[\w.]+\.\w+');
     final _phonePattern = RegExp(r'\b\d{7,}\b');
 
-    return items
-        .where((s) => s.trim().isNotEmpty)
-        .map((s) => s.trim())
-        .where((s) =>
-            !_idPattern.hasMatch(s) &&
-            !_emailPattern.hasMatch(s) &&
-            !_phonePattern.hasMatch(s))
-        .toList();
+    final sanitized = <String, List<String>>{};
+    for (final entry in items.entries) {
+      final safeList = entry.value
+          .where((s) => s.trim().isNotEmpty)
+          .map((s) => s.trim())
+          .where((s) =>
+              !_idPattern.hasMatch(s) &&
+              !_emailPattern.hasMatch(s) &&
+              !_phonePattern.hasMatch(s))
+          .toList();
+      if (safeList.isNotEmpty) {
+        sanitized[entry.key] = safeList;
+      }
+    }
+    return sanitized;
   }
 
   /// Builds a privacy-safe prompt — zero personal identifiers.
   static String _buildPrompt({
-    required List<String> likes,
-    required List<String> dislikes,
+    required Map<String, List<String>> likes,
+    required Map<String, List<String>> dislikes,
+    String? partnerMood,
   }) {
     final safeLikes = _sanitize(likes);
     final safeDislikes = _sanitize(dislikes);
 
-    final likesPart = safeLikes.isEmpty
-        ? '(هیچ نەزیادکراوە)'
-        : safeLikes.join('، ');
-    final dislikesPart = safeDislikes.isEmpty
-        ? '(هیچ نەزیادکراوە)'
-        : safeDislikes.join('، ');
+    String formatMap(Map<String, List<String>> map) {
+      if (map.isEmpty) return '(هیچ نەزیادکراوە)';
+      return map.entries.map((e) => '[${e.key}]: ${e.value.join('، ')}').join('\n');
+    }
+
+    final likesPart = formatMap(safeLikes);
+    final dislikesPart = formatMap(safeDislikes);
+    final moodPart = partnerMood != null ? '\nباری دەروونی ئەمڕۆی هاوسەرەکە: $partnerMood (تکایە پێشنیارەکانت گونجاو بکە بۆ ئەوەی دڵخۆشی بکەیت یان بەپێی ئەم باری دەروونییە بێت)' : '';
 
     return '''
-تۆ یاریدەدەری کوپڵەکانی. ئەرکەکەت پێشنیارکردنی دیاری و ئاکتیڤیتی ڕۆمانتیکی بۆ کوپڵەکانە.
+تۆ یاریدەدەری کوپڵەکانی. ئەرکەکەت پێشنیارکردنی دیاری و ئاکتیڤیتی و کات بەسەربردنە بۆ کوپڵەکان لەسەر بنەمای حەز و ناحەزەکانیان.
 
-یادداشتی پارێزگاری: ئەم داواکارییە هیچ زانیارییەکی کەسی تێدا نییە. تەنها لیستی گەنەرالی حەز و ناحەزەکان نێردراوە. تکایە زانیارییەکان پاشەکەوت مەکە.
+یادداشتی پارێزگاری: ئەم داواکارییە هیچ زانیارییەکی کەسی تێدا نییە. تەنها لیستی حەز و ناحەزەکان نێردراوە. تکایە زانیارییەکان پاشەکەوت مەکە.$moodPart
 
-حەزەکانی هاوسەر: $likesPart
-ناحەزەکانی هاوسەر: $dislikesPart
+حەزەکانی هاوسەر:
+$likesPart
 
-تکایە پێشنیارەکانت بە زمانی کوردی سۆرانی بنووسە و بە ئەم شێوازە:
+ناحەزەکانی هاوسەر:
+$dislikesPart
 
-🎁 پێشنیاری دیاری:
+تکایە پێشنیارەکانت بە زمانی کوردی سۆرانی بنووسە. 
+**زۆر گرنگ:** پێویستە هەموو پێشنیارەکانت ڕاستەوخۆ و بەتەواوی پەیوەندییان بەو "حەزانەی" سەرەوە هەبێت، وە بەتوندی خۆت بپارێزە لەو شتانەی لە "ناحەزەکان"دا هاتوون. شتی گشتی پێشنیار مەکە، بەڵکو زۆر تایبەتی بکە بەپێی داتاکانی سەرەوە.
+
+بەم شێوازەی خوارەوە وەڵام بدەوە:
+
+🎁 دیارییە پێشنیارکراوەکان:
 ١. ...
 ٢. ...
 ٣. ...
-٤. ...
-٥. ...
 
-🌙 ئێوارەی ڕۆمانتیک:
+🌙 چالاکی و دەرچوون:
 ١. ...
 ٢. ...
 ٣. ...
-٤. ...
-٥. ...
 
-تەنها پێنج پێشنیار بۆ هەر بەشێک بنووسە. کورت و کار بێت.
+💬 بابەتی گفتوگۆ:
+١. ...
+٢. ...
+٣. ...
+
+🎬 فیلم و کات بەسەربردن:
+١. ...
+٢. ...
+٣. ...
+
+تەنها ٣ بۆ ٤ پێشنیار بۆ هەر بەشێک بنووسە. کورت، سەرنجڕاکێش، و گونجاو بن.
 ''';
   }
 
   /// Returns [AiResult] with gift ideas and date night ideas.
   /// Throws [AiException] on API or key errors.
   Future<AiResult> getSuggestions({
-    required List<String> partnerLikes,
-    required List<String> partnerDislikes,
+    required Map<String, List<String>> partnerLikes,
+    required Map<String, List<String>> partnerDislikes,
+    String? partnerMood,
+    String modelName = 'gemini-2.5-flash',
   }) async {
     if (kGeminiApiKey == 'YOUR_GEMINI_API_KEY_HERE' ||
         kGeminiApiKey.trim().isEmpty) {
@@ -89,54 +120,71 @@ class AiService {
     }
 
     final model = GenerativeModel(
-      model: 'gemini-1.5-flash',
+      model: modelName,
       apiKey: kGeminiApiKey,
       generationConfig: GenerationConfig(
-        temperature: 0.8,
-        maxOutputTokens: 600,
+        temperature: 0.7,
+        maxOutputTokens: 2500,
       ),
     );
 
     final prompt = _buildPrompt(
       likes: partnerLikes,
       dislikes: partnerDislikes,
+      partnerMood: partnerMood,
     );
 
-    final response =
-        await model.generateContent([Content.text(prompt)]);
-    final text = response.text ?? '';
+    try {
+      final response = await model
+          .generateContent([Content.text(prompt)])
+          .timeout(const Duration(seconds: 120), onTimeout: () {
+        throw AiException(
+            'کاتی وەڵامدانەوەی سەرڤەرەکە تەواو بوو (Timeout). مۆدێلەکە زۆر کاتی برد، تکایە ئینتەرنێتەکەت بپشکنە و دووبارە هەوڵ بدەرەوە یان مۆدێلێکی تر هەڵبژێرە.');
+      });
+      final text = response.text ?? '';
 
-    if (text.isEmpty) {
-      throw AiException('وەڵامی بەتاڵ لە Gemini.');
+      if (text.isEmpty) {
+        throw AiException('وەڵامی بەتاڵ لە Gemini.');
+      }
+
+      return _parseResponse(text);
+    } catch (e) {
+      if (e.toString().contains('API key not valid') || e.toString().contains('400')) {
+        throw AiException('API Keyـەکەت هەڵەیە. تکایە دڵنیابە لە فایلەی secrets.dart دانراوە و ڕاستە.');
+      }
+      rethrow;
     }
-
-    return _parseResponse(text);
   }
 
-  /// Splits the raw Gemini response into two sections.
   static AiResult _parseResponse(String raw) {
-    const giftMarker = '🎁';
-    const dateMarker = '🌙';
+    String gifts = '';
+    String dates = '';
+    String convos = '';
+    String entertainment = '';
 
-    final giftIdx = raw.indexOf(giftMarker);
-    final dateIdx = raw.indexOf(dateMarker);
-
-    if (giftIdx == -1 || dateIdx == -1) {
-      // If markers not found, return the whole text as gifts
-      return AiResult(giftIdeas: raw.trim(), dateIdeas: '');
+    final parts = raw.split(RegExp(r'(?=🎁|🌙|💬|🎬)'));
+    for (var part in parts) {
+      if (part.startsWith('🎁')) {
+        gifts = part.replaceFirst(RegExp(r'^🎁[^\n]*\n?'), '').trim();
+      } else if (part.startsWith('🌙')) {
+        dates = part.replaceFirst(RegExp(r'^🌙[^\n]*\n?'), '').trim();
+      } else if (part.startsWith('💬')) {
+        convos = part.replaceFirst(RegExp(r'^💬[^\n]*\n?'), '').trim();
+      } else if (part.startsWith('🎬')) {
+        entertainment = part.replaceFirst(RegExp(r'^🎬[^\n]*\n?'), '').trim();
+      }
     }
 
-    final giftSection = raw
-        .substring(giftIdx, dateIdx)
-        .replaceFirst('🎁 پێشنیاری دیاری:', '')
-        .trim();
+    if (gifts.isEmpty && dates.isEmpty && convos.isEmpty && entertainment.isEmpty) {
+      gifts = raw.trim();
+    }
 
-    final dateSection = raw
-        .substring(dateIdx)
-        .replaceFirst('🌙 ئێوارەی ڕۆمانتیک:', '')
-        .trim();
-
-    return AiResult(giftIdeas: giftSection, dateIdeas: dateSection);
+    return AiResult(
+      giftIdeas: gifts,
+      dateIdeas: dates,
+      conversationIdeas: convos,
+      entertainmentIdeas: entertainment,
+    );
   }
 }
 

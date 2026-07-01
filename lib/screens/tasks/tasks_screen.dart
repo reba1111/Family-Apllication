@@ -46,12 +46,12 @@ class _TasksScreenState extends State<TasksScreen>
     if (mounted) setState(() => _partnerId = me?.partnerId);
   }
 
-  void _showAddDialog() {
-    final titleCtrl = TextEditingController();
-    final descCtrl = TextEditingController();
-    DateTime dueDate = DateTime.now().add(const Duration(days: 1));
-    bool assignToPartner = false;
-    TaskPriority priority = TaskPriority.normal;
+  void _showAddEditDialog({TaskModel? editTask}) {
+    final titleCtrl = TextEditingController(text: editTask?.title ?? '');
+    final descCtrl = TextEditingController(text: editTask?.description ?? '');
+    DateTime dueDate = editTask?.dueDate ?? DateTime.now().add(const Duration(days: 1));
+    bool assignToPartner = editTask != null ? editTask.assignedTo != editTask.assignedBy : false;
+    TaskPriority priority = editTask?.priority ?? TaskPriority.normal;
 
     showModalBottomSheet(
       context: context,
@@ -69,7 +69,7 @@ class _TasksScreenState extends State<TasksScreen>
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('تاسکی نوێ ✅', style: AppTheme.headlineMedium),
+                Text(editTask == null ? 'تاسکی نوێ ✅' : 'دەستکاریکردنی تاسک ✅', style: AppTheme.headlineMedium),
                 const SizedBox(height: 20),
 
                 TextField(
@@ -224,37 +224,81 @@ class _TasksScreenState extends State<TasksScreen>
                   ),
 
                 const SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: () async {
-                    if (titleCtrl.text.trim().isEmpty) return;
-                    final uid = widget.currentUserId;
-                    final assignedTo =
-                        assignToPartner && _partnerId != null
-                            ? _partnerId!
-                            : uid;
-                    final task = TaskModel(
-                      id: '',
-                      title: titleCtrl.text.trim(),
-                      description: descCtrl.text.trim(),
-                      assignedTo: assignedTo,
-                      assignedBy: uid,
-                      dueDate: dueDate,
-                      createdAt: DateTime.now(),
-                      priority: priority,
-                    );
-                    final ref = await _fs.addTask(widget.coupleId, task);
-                    // Schedule local notification only for my own tasks
-                    if (assignedTo == uid) {
-                      await _notif.scheduleTask(
-                        taskId: ref,
-                        title: task.title,
-                        dueDate: dueDate,
-                      );
-                    }
-                    if (ctx.mounted) Navigator.pop(ctx);
-                  },
-                  child: const Text('زیادکردن'),
-                ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () async {
+                            if (titleCtrl.text.trim().isEmpty) return;
+                            final uid = widget.currentUserId;
+                            final assignedTo =
+                                assignToPartner && _partnerId != null
+                                    ? _partnerId!
+                                    : uid;
+                            final task = TaskModel(
+                              id: editTask?.id ?? '',
+                              title: titleCtrl.text.trim(),
+                              description: descCtrl.text.trim(),
+                              assignedTo: assignedTo,
+                              assignedBy: editTask?.assignedBy ?? uid,
+                              dueDate: dueDate,
+                              createdAt: editTask?.createdAt ?? DateTime.now(),
+                              priority: priority,
+                              isDone: editTask?.isDone ?? false,
+                            );
+                            
+                            String refId;
+                            if (editTask != null) {
+                              await _fs.updateTask(widget.coupleId, editTask.id, task.toFirestore());
+                              refId = editTask.id;
+                              if (editTask.assignedTo == uid) {
+                                 await _notif.cancelTask(editTask.id);
+                              }
+                            } else {
+                              refId = await _fs.addTask(widget.coupleId, task);
+                            }
+                            
+                            // Schedule local notification only for my own tasks
+                            if (assignedTo == uid) {
+                              await _notif.scheduleTask(
+                                taskId: refId,
+                                title: task.title,
+                                dueDate: dueDate,
+                              );
+                            }
+                            if (ctx.mounted) Navigator.pop(ctx);
+                          },
+                          child: Text(editTask == null ? 'زیادکردن' : 'پاشەکەوتکردن'),
+                        ),
+                      ),
+                      if (editTask != null) ...[
+                        const SizedBox(width: 12),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline, color: AppTheme.error),
+                          onPressed: () async {
+                            final confirm = await showDialog<bool>(
+                              context: ctx,
+                              builder: (c) => AlertDialog(
+                                backgroundColor: AppTheme.surface,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                title: Text('سڕینەوە', style: AppTheme.titleLarge),
+                                content: Text('دڵنیایت لە سڕینەوەی ئەم تاسکە؟', style: AppTheme.bodyLarge),
+                                actions: [
+                                  TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('نەخێر', style: TextStyle(color: AppTheme.onSurfaceMuted))),
+                                  TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('بەڵێ، بسڕەوە', style: TextStyle(color: AppTheme.error))),
+                                ],
+                              ),
+                            );
+                            if (confirm == true) {
+                              await _fs.deleteTask(widget.coupleId, editTask.id);
+                              await _notif.cancelTask(editTask.id);
+                              if (ctx.mounted) Navigator.pop(ctx);
+                            }
+                          },
+                        ),
+                      ],
+                    ],
+                  ),
               ],
             ),
           ),
@@ -332,6 +376,7 @@ class _TasksScreenState extends State<TasksScreen>
                           canDelete: true,
                           fs: _fs,
                           notif: _notif,
+                          onTap: (task) => _showAddEditDialog(editTask: task),
                         ),
                         _TaskListView(
                           tasks: partnerTasks,
@@ -351,7 +396,7 @@ class _TasksScreenState extends State<TasksScreen>
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showAddDialog,
+        onPressed: () => _showAddEditDialog(),
         backgroundColor: AppTheme.primary,
         icon: const Icon(Icons.add, color: Colors.white),
         label:
@@ -379,6 +424,7 @@ class _TaskListView extends StatelessWidget {
   final bool canDelete;
   final FirestoreService fs;
   final NotificationService notif;
+  final void Function(TaskModel)? onTap;
 
   const _TaskListView({
     required this.tasks,
@@ -387,6 +433,7 @@ class _TaskListView extends StatelessWidget {
     required this.canDelete,
     required this.fs,
     required this.notif,
+    this.onTap,
   });
 
   @override
@@ -438,6 +485,7 @@ class _TaskListView extends StatelessWidget {
                         canDelete: canDelete,
                         fs: fs,
                         notif: notif,
+                        onTap: onTap != null ? () => onTap!(tasks[i]) : null,
                       ),
                 ),
         ),
@@ -453,6 +501,7 @@ class _TaskCard extends StatelessWidget {
   final bool canDelete;
   final FirestoreService fs;
   final NotificationService notif;
+  final void Function()? onTap;
 
   const _TaskCard({
     required this.task,
@@ -461,6 +510,7 @@ class _TaskCard extends StatelessWidget {
     required this.canDelete,
     required this.fs,
     required this.notif,
+    this.onTap,
   });
 
   @override
@@ -469,20 +519,22 @@ class _TaskCard extends StatelessWidget {
         !task.isDone && task.dueDate.isBefore(DateTime.now());
     final pColor = _priorityColor(task.priority);
 
-    final card = Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        gradient: AppTheme.cardGradient,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: task.isDone
-              ? AppTheme.success.withValues(alpha: 0.25)
-              : overdue
-                  ? AppTheme.error.withValues(alpha: 0.4)
-                  : pColor.withValues(alpha: 0.3),
+    final card = GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          gradient: AppTheme.cardGradient,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: task.isDone
+                ? AppTheme.success.withValues(alpha: 0.25)
+                : overdue
+                    ? AppTheme.error.withValues(alpha: 0.4)
+                    : pColor.withValues(alpha: 0.3),
+          ),
         ),
-      ),
       child: Row(
         children: [
           // Priority stripe
@@ -619,13 +671,36 @@ class _TaskCard extends StatelessWidget {
           ),
         ],
       ),
-    );
+    ));
 
     if (!canDelete) return card;
+
+  Future<bool?> _confirmDelete(BuildContext context) {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('سڕینەوە', style: AppTheme.titleLarge),
+        content: Text('دڵنیایت لە سڕینەوەی ئەم تاسکە؟', style: AppTheme.bodyLarge),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('نەخێر', style: TextStyle(color: AppTheme.onSurfaceMuted)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('بەڵێ، بسڕەوە', style: TextStyle(color: AppTheme.error)),
+          ),
+        ],
+      ),
+    );
+  }
 
     return Dismissible(
       key: ValueKey(task.id),
       direction: DismissDirection.endToStart,
+      confirmDismiss: (_) => _confirmDelete(context),
       onDismissed: (_) {
         fs.deleteTask(coupleId, task.id);
         notif.cancelTask(task.id);

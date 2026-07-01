@@ -30,9 +30,9 @@ class _QuizScreenState extends State<QuizScreen>
     super.dispose();
   }
 
-  void _showAddQuiz() {
-    final qCtrl = TextEditingController();
-    final aCtrl = TextEditingController();
+  void _showAddEditQuiz({QuizModel? editQuiz}) {
+    final qCtrl = TextEditingController(text: editQuiz?.question ?? '');
+    final aCtrl = TextEditingController(text: editQuiz?.answer ?? '');
 
     showModalBottomSheet(
       context: context,
@@ -48,7 +48,7 @@ class _QuizScreenState extends State<QuizScreen>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('پرسیاری نوێ ❓', style: AppTheme.headlineMedium),
+            Text(editQuiz == null ? 'پرسیاری نوێ ❓' : 'دەستکاریکردنی پرسیار ❓', style: AppTheme.headlineMedium),
             const SizedBox(height: 20),
             TextField(
               controller: qCtrl,
@@ -64,22 +64,60 @@ class _QuizScreenState extends State<QuizScreen>
                   hintText: 'وەڵامەکە (تا کاتی دیاریکردن نادرێت)'),
             ),
             const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () async {
-                if (qCtrl.text.trim().isEmpty ||
-                    aCtrl.text.trim().isEmpty) return;
-                final quiz = QuizModel(
-                  id: '',
-                  question: qCtrl.text.trim(),
-                  answer: aCtrl.text.trim(),
-                  createdBy: widget.currentUserId,
-                  createdAt: DateTime.now(),
-                );
-                await _fs.addQuiz(widget.coupleId, quiz);
-                if (ctx.mounted) Navigator.pop(ctx);
-              },
-              child: const Text('زیادکردن'),
-            ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () async {
+                            if (qCtrl.text.trim().isEmpty ||
+                                aCtrl.text.trim().isEmpty) return;
+                            final quiz = QuizModel(
+                              id: editQuiz?.id ?? '',
+                              question: qCtrl.text.trim(),
+                              answer: aCtrl.text.trim(),
+                              createdBy: widget.currentUserId,
+                              createdAt: editQuiz?.createdAt ?? DateTime.now(),
+                              answeredBy: editQuiz?.answeredBy,
+                              userAnswer: editQuiz?.userAnswer,
+                              isCorrect: editQuiz?.isCorrect,
+                            );
+                            if (editQuiz != null) {
+                              await _fs.updateQuiz(widget.coupleId, editQuiz.id, quiz.toFirestore());
+                            } else {
+                              await _fs.addQuiz(widget.coupleId, quiz);
+                            }
+                            if (ctx.mounted) Navigator.pop(ctx);
+                          },
+                          child: Text(editQuiz == null ? 'زیادکردن' : 'پاشەکەوتکردن'),
+                        ),
+                      ),
+                      if (editQuiz != null) ...[
+                        const SizedBox(width: 12),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline, color: AppTheme.error),
+                          onPressed: () async {
+                            final confirm = await showDialog<bool>(
+                              context: ctx,
+                              builder: (c) => AlertDialog(
+                                backgroundColor: AppTheme.surface,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                title: Text('سڕینەوە', style: AppTheme.titleLarge),
+                                content: Text('دڵنیایت لە سڕینەوەی ئەم پرسیارە؟', style: AppTheme.bodyLarge),
+                                actions: [
+                                  TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('نەخێر', style: TextStyle(color: AppTheme.onSurfaceMuted))),
+                                  TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('بەڵێ، بسڕەوە', style: TextStyle(color: AppTheme.error))),
+                                ],
+                              ),
+                            );
+                            if (confirm == true) {
+                              await _fs.deleteQuiz(widget.coupleId, editQuiz.id);
+                              if (ctx.mounted) Navigator.pop(ctx);
+                            }
+                          },
+                        ),
+                      ],
+                    ],
+                  ),
           ],
         ),
       ),
@@ -88,7 +126,12 @@ class _QuizScreenState extends State<QuizScreen>
 
   void _showAnswer(QuizModel quiz) {
     if (quiz.createdBy == widget.currentUserId) {
-      // Creator sees the answer
+      if (quiz.answeredBy == null) {
+        // Creator can edit unanswered quiz
+        _showAddEditQuiz(editQuiz: quiz);
+        return;
+      }
+      // Creator sees the answer for answered quiz
       showDialog(
         context: context,
         builder: (_) => AlertDialog(
@@ -248,7 +291,7 @@ class _QuizScreenState extends State<QuizScreen>
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showAddQuiz,
+        onPressed: () => _showAddEditQuiz(),
         backgroundColor: AppTheme.primary,
         icon: const Icon(Icons.add, color: Colors.white),
         label: const Text('پرسیاری نوێ',
@@ -311,9 +354,32 @@ class _QuizList extends StatelessWidget {
           statusIcon = correct ? Icons.check_circle_outline : Icons.cancel_outlined;
         }
 
+  Future<bool?> _confirmDelete(BuildContext context) {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('سڕینەوە', style: AppTheme.titleLarge),
+        content: Text('دڵنیایت لە سڕینەوەی ئەم پرسیارە؟', style: AppTheme.bodyLarge),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('نەخێر', style: TextStyle(color: AppTheme.onSurfaceMuted)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('بەڵێ، بسڕەوە', style: TextStyle(color: AppTheme.error)),
+          ),
+        ],
+      ),
+    );
+  }
+
         return Dismissible(
           key: ValueKey(q.id),
           direction: DismissDirection.endToStart,
+          confirmDismiss: (_) => _confirmDelete(context),
           onDismissed: (_) => fs.deleteQuiz(coupleId, q.id),
           background: Container(
             alignment: Alignment.centerRight,

@@ -22,6 +22,8 @@ class _LikesScreenState extends State<LikesScreen>
   late TabController _tab;
   final _fs = FirestoreService();
 
+  final List<String> _categories = ['خواردن', 'دیاری', 'گشتی'];
+
   @override
   void initState() {
     super.initState();
@@ -34,56 +36,232 @@ class _LikesScreenState extends State<LikesScreen>
     super.dispose();
   }
 
-  Future<void> _addItem(UserModel me, bool isLike) async {
-    final ctrl = TextEditingController();
-    final confirmed = await showModalBottomSheet<bool>(
+  List<String> _getAllCategories(UserModel me) {
+    final cats = Set<String>.from(_categories);
+    cats.addAll(me.likes.keys);
+    cats.addAll(me.dislikes.keys);
+    return cats.toList();
+  }
+
+  Future<void> _addItem(UserModel me, bool isLike,
+      {String? editOldCat, String? editOldText, int? editIndex}) async {
+    final allCategories = _getAllCategories(me);
+
+    final result = await showModalBottomSheet<Map<String, String>?>(
       context: context,
       backgroundColor: AppTheme.surface,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          left: 24, right: 24, top: 24,
-          bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              isLike ? '❤️ حەزێکی نوێ' : '💔 ناحەزێکی نوێ',
-              style: AppTheme.headlineMedium,
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: ctrl,
-              autofocus: true,
-              style: TextStyle(color: AppTheme.onSurface),
-              decoration: InputDecoration(
-                hintText: isLike ? 'مەسەلا: پیتزا، مووزیک...' : 'مەسەلا: ترافیک، تاریکی...',
+      builder: (ctx) {
+        String selectedCat = editOldCat ?? 'گشتی';
+        final catCtrl = TextEditingController(text: selectedCat);
+        final ctrl = TextEditingController(text: editOldText ?? '');
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 24,
+                right: 24,
+                top: 24,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
               ),
-              onSubmitted: (_) => Navigator.pop(ctx, true),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('زیادکردن'),
-            ),
-          ],
-        ),
-      ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    editOldText != null
+                        ? (isLike
+                            ? '❤️ دەستکاریکردنی حەز'
+                            : '💔 دەستکاریکردنی ناحەز')
+                        : (isLike ? '❤️ حەزێکی نوێ' : '💔 ناحەزێکی نوێ'),
+                    style: AppTheme.headlineMedium,
+                  ),
+                  const SizedBox(height: 16),
+                  Autocomplete<String>(
+                    initialValue: TextEditingValue(text: selectedCat),
+                    optionsBuilder: (TextEditingValue textEditingValue) {
+                      if (textEditingValue.text.isEmpty) {
+                        return allCategories;
+                      }
+                      return allCategories.where((String option) {
+                        return option.contains(textEditingValue.text);
+                      });
+                    },
+                    onSelected: (String selection) {
+                      selectedCat = selection;
+                      catCtrl.text = selection;
+                    },
+                    fieldViewBuilder: (context, textEditingController,
+                        focusNode, onFieldSubmitted) {
+                      return TextField(
+                        controller: textEditingController,
+                        focusNode: focusNode,
+                        style: const TextStyle(color: AppTheme.onSurface),
+                        decoration: InputDecoration(
+                          hintText: 'جۆر (بۆ نموونە: خواردن)',
+                          suffixIcon: const Icon(Icons.arrow_drop_down,
+                              color: AppTheme.onSurfaceMuted),
+                        ),
+                        onChanged: (v) => selectedCat = v,
+                      );
+                    },
+                    optionsViewBuilder: (context, onSelected, options) {
+                      return Align(
+                        alignment: Alignment.topLeft,
+                        child: Material(
+                          elevation: 4.0,
+                          color: AppTheme.surfaceVariant,
+                          borderRadius: BorderRadius.circular(12),
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(
+                                maxHeight: 200, maxWidth: 300),
+                            child: ListView.builder(
+                              padding: EdgeInsets.zero,
+                              shrinkWrap: true,
+                              itemCount: options.length,
+                              itemBuilder: (BuildContext context, int index) {
+                                final option = options.elementAt(index);
+                                return InkWell(
+                                  onTap: () => onSelected(option),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(16.0),
+                                    child: Text(option,
+                                        style: const TextStyle(
+                                            color: AppTheme.onSurface)),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: ctrl,
+                    autofocus: editOldText == null,
+                    style: const TextStyle(color: AppTheme.onSurface),
+                    decoration: InputDecoration(
+                      hintText: isLike
+                          ? 'مەسەلا: پیتزا، مووزیک...'
+                          : 'مەسەلا: ترافیک، تاریکی...',
+                    ),
+                    onSubmitted: (_) => Navigator.pop(ctx, {
+                      'cat': selectedCat.isEmpty ? 'گشتی' : selectedCat,
+                      'text': ctrl.text
+                    }),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.pop(ctx, {
+                            'cat': selectedCat.isEmpty ? 'گشتی' : selectedCat,
+                            'text': ctrl.text
+                          }),
+                          child: Text(editOldText != null
+                              ? 'پاشەکەوتکردن'
+                              : 'زیادکردن'),
+                        ),
+                      ),
+                      if (editOldText != null) ...[
+                        const SizedBox(width: 12),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline,
+                              color: AppTheme.error),
+                          onPressed: () async {
+                            final confirm = await showDialog<bool>(
+                              context: ctx,
+                              builder: (c) => AlertDialog(
+                                backgroundColor: AppTheme.surface,
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20)),
+                                title:
+                                    Text('سڕینەوە', style: AppTheme.titleLarge),
+                                content: Text('دڵنیایت لە سڕینەوەی ئەمە؟',
+                                    style: AppTheme.bodyLarge),
+                                actions: [
+                                  TextButton(
+                                      onPressed: () => Navigator.pop(c, false),
+                                      child: const Text('نەخێر',
+                                          style: TextStyle(
+                                              color: AppTheme.onSurfaceMuted))),
+                                  TextButton(
+                                      onPressed: () => Navigator.pop(c, true),
+                                      child: const Text('بەڵێ، بسڕەوە',
+                                          style: TextStyle(
+                                              color: AppTheme.error))),
+                                ],
+                              ),
+                            );
+                            if (confirm == true) {
+                              Navigator.pop(ctx, {
+                                'action': 'delete',
+                                'cat': editOldCat ?? '',
+                                'text': editOldText
+                              });
+                            }
+                          },
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
 
-    if (confirmed == true && ctrl.text.trim().isNotEmpty) {
-      final newLikes = List<String>.from(me.likes);
-      final newDislikes = List<String>.from(me.dislikes);
-      if (isLike) {
-        newLikes.add(ctrl.text.trim());
+    if (result != null) {
+      final newLikes = Map<String, List<String>>.from(
+          me.likes.map((k, v) => MapEntry(k, List<String>.from(v))));
+      final newDislikes = Map<String, List<String>>.from(
+          me.dislikes.map((k, v) => MapEntry(k, List<String>.from(v))));
+
+      if (result['action'] == 'delete') {
+        if (isLike) {
+          if (editOldCat != null && editIndex != null) {
+            newLikes[editOldCat]?.removeAt(editIndex);
+            if (newLikes[editOldCat]?.isEmpty ?? false)
+              newLikes.remove(editOldCat);
+          }
+        } else {
+          if (editOldCat != null && editIndex != null) {
+            newDislikes[editOldCat]?.removeAt(editIndex);
+            if (newDislikes[editOldCat]?.isEmpty ?? false)
+              newDislikes.remove(editOldCat);
+          }
+        }
+      } else if (result['text'] != null && result['text']!.trim().isNotEmpty) {
+        final cat = result['cat']!;
+        final text = result['text']!.trim();
+
+        if (isLike) {
+          if (editOldCat != null && editIndex != null) {
+            newLikes[editOldCat]?.removeAt(editIndex);
+            if (newLikes[editOldCat]?.isEmpty ?? false)
+              newLikes.remove(editOldCat);
+          }
+          newLikes[cat] = [...(newLikes[cat] ?? []), text];
+        } else {
+          if (editOldCat != null && editIndex != null) {
+            newDislikes[editOldCat]?.removeAt(editIndex);
+            if (newDislikes[editOldCat]?.isEmpty ?? false)
+              newDislikes.remove(editOldCat);
+          }
+          newDislikes[cat] = [...(newDislikes[cat] ?? []), text];
+        }
       } else {
-        newDislikes.add(ctrl.text.trim());
+        return;
       }
+
       await _fs.updateLikesDislikes(
         uid: widget.userId,
         likes: newLikes,
@@ -92,14 +270,21 @@ class _LikesScreenState extends State<LikesScreen>
     }
   }
 
-  Future<void> _removeItem(UserModel me, bool isLike, int index) async {
-    final newLikes = List<String>.from(me.likes);
-    final newDislikes = List<String>.from(me.dislikes);
+  Future<void> _removeItem(
+      UserModel me, bool isLike, String category, int index) async {
+    final newLikes = Map<String, List<String>>.from(
+        me.likes.map((k, v) => MapEntry(k, List<String>.from(v))));
+    final newDislikes = Map<String, List<String>>.from(
+        me.dislikes.map((k, v) => MapEntry(k, List<String>.from(v))));
+
     if (isLike) {
-      newLikes.removeAt(index);
+      newLikes[category]?.removeAt(index);
+      if (newLikes[category]?.isEmpty ?? false) newLikes.remove(category);
     } else {
-      newDislikes.removeAt(index);
+      newDislikes[category]?.removeAt(index);
+      if (newDislikes[category]?.isEmpty ?? false) newDislikes.remove(category);
     }
+
     await _fs.updateLikesDislikes(
       uid: widget.userId,
       likes: newLikes,
@@ -172,8 +357,14 @@ class _LikesScreenState extends State<LikesScreen>
                         if (me == null) return const SizedBox();
                         return _MyListView(
                           me: me,
-                          onAdd: (isLike) => _addItem(me, isLike),
-                          onRemove: (isLike, i) => _removeItem(me, isLike, i),
+                          onAdd: (isLike,
+                                  {editOldCat, editOldText, editIndex}) =>
+                              _addItem(me, isLike,
+                                  editOldCat: editOldCat,
+                                  editOldText: editOldText,
+                                  editIndex: editIndex),
+                          onRemove: (isLike, cat, i) =>
+                              _removeItem(me, isLike, cat, i),
                         );
                       },
                     ),
@@ -216,14 +407,62 @@ class _LikesScreenState extends State<LikesScreen>
 
 class _MyListView extends StatelessWidget {
   final UserModel me;
-  final void Function(bool isLike) onAdd;
-  final void Function(bool isLike, int index) onRemove;
+  final void Function(bool isLike,
+      {String? editOldCat, String? editOldText, int? editIndex}) onAdd;
+  final void Function(bool isLike, String category, int index) onRemove;
 
   const _MyListView({
     required this.me,
     required this.onAdd,
     required this.onRemove,
   });
+
+  List<Widget> _buildCategorizedItems(
+      Map<String, List<String>> items, bool isLike, Color color) {
+    if (items.isEmpty) {
+      return [const SliverToBoxAdapter(child: _EmptyHint())];
+    }
+
+    final slivers = <Widget>[];
+    for (final entry in items.entries) {
+      if (entry.value.isEmpty) continue;
+
+      // Category Header
+      slivers.add(
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+            child: Text(
+              entry.key,
+              style:
+                  AppTheme.bodyLarge.copyWith(color: AppTheme.onSurfaceMuted),
+            ),
+          ),
+        ),
+      );
+
+      // Category Items
+      slivers.add(
+        SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (_, i) => GestureDetector(
+              onTap: () => onAdd(isLike,
+                  editOldCat: entry.key,
+                  editOldText: entry.value[i],
+                  editIndex: i),
+              child: _EditableItem(
+                text: entry.value[i],
+                color: color,
+                onRemove: () => onRemove(isLike, entry.key, i),
+              ),
+            ),
+            childCount: entry.value.length,
+          ),
+        ),
+      );
+    }
+    return slivers;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -238,18 +477,7 @@ class _MyListView extends StatelessWidget {
             onAdd: () => onAdd(true),
           ),
         ),
-        me.likes.isEmpty
-            ? const SliverToBoxAdapter(child: _EmptyHint())
-            : SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (_, i) => _EditableItem(
-                    text: me.likes[i],
-                    color: AppTheme.primary,
-                    onRemove: () => onRemove(true, i),
-                  ),
-                  childCount: me.likes.length,
-                ),
-              ),
+        ..._buildCategorizedItems(me.likes, true, AppTheme.primary),
 
         // Dislikes section
         SliverToBoxAdapter(
@@ -260,18 +488,7 @@ class _MyListView extends StatelessWidget {
             onAdd: () => onAdd(false),
           ),
         ),
-        me.dislikes.isEmpty
-            ? const SliverToBoxAdapter(child: _EmptyHint())
-            : SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (_, i) => _EditableItem(
-                    text: me.dislikes[i],
-                    color: AppTheme.error,
-                    onRemove: () => onRemove(false, i),
-                  ),
-                  childCount: me.dislikes.length,
-                ),
-              ),
+        ..._buildCategorizedItems(me.dislikes, false, AppTheme.error),
 
         const SliverToBoxAdapter(child: SizedBox(height: 32)),
       ],
@@ -286,6 +503,46 @@ class _PartnerListView extends StatelessWidget {
 
   const _PartnerListView({required this.partner});
 
+  List<Widget> _buildCategorizedItems(
+      Map<String, List<String>> items, Color color) {
+    if (items.isEmpty) {
+      return [const SliverToBoxAdapter(child: _EmptyHint())];
+    }
+
+    final slivers = <Widget>[];
+    for (final entry in items.entries) {
+      if (entry.value.isEmpty) continue;
+
+      // Category Header
+      slivers.add(
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+            child: Text(
+              entry.key,
+              style:
+                  AppTheme.bodyLarge.copyWith(color: AppTheme.onSurfaceMuted),
+            ),
+          ),
+        ),
+      );
+
+      // Category Items
+      slivers.add(
+        SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (_, i) => _ReadOnlyItem(
+              text: entry.value[i],
+              color: color,
+            ),
+            childCount: entry.value.length,
+          ),
+        ),
+      );
+    }
+    return slivers;
+  }
+
   @override
   Widget build(BuildContext context) {
     return CustomScrollView(
@@ -298,7 +555,7 @@ class _PartnerListView extends StatelessWidget {
                 Container(
                   width: 36,
                   height: 36,
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     gradient: AppTheme.primaryGradient,
                     shape: BoxShape.circle,
                   ),
@@ -320,17 +577,7 @@ class _PartnerListView extends StatelessWidget {
             color: AppTheme.primary,
           ),
         ),
-        partner.likes.isEmpty
-            ? const SliverToBoxAdapter(child: _EmptyHint())
-            : SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (_, i) => _ReadOnlyItem(
-                    text: partner.likes[i],
-                    color: AppTheme.primary,
-                  ),
-                  childCount: partner.likes.length,
-                ),
-              ),
+        ..._buildCategorizedItems(partner.likes, AppTheme.primary),
 
         // Partner Dislikes
         SliverToBoxAdapter(
@@ -340,17 +587,7 @@ class _PartnerListView extends StatelessWidget {
             color: AppTheme.error,
           ),
         ),
-        partner.dislikes.isEmpty
-            ? const SliverToBoxAdapter(child: _EmptyHint())
-            : SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (_, i) => _ReadOnlyItem(
-                    text: partner.dislikes[i],
-                    color: AppTheme.error,
-                  ),
-                  childCount: partner.dislikes.length,
-                ),
-              ),
+        ..._buildCategorizedItems(partner.dislikes, AppTheme.error),
 
         const SliverToBoxAdapter(child: SizedBox(height: 32)),
       ],
@@ -381,8 +618,7 @@ class _SectionHeader extends StatelessWidget {
         children: [
           Text(emoji, style: const TextStyle(fontSize: 20)),
           const SizedBox(width: 8),
-          Text(title,
-              style: AppTheme.titleLarge.copyWith(color: color)),
+          Text(title, style: AppTheme.titleLarge.copyWith(color: color)),
           const Spacer(),
           if (onAdd != null)
             GestureDetector(
@@ -391,9 +627,9 @@ class _SectionHeader extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.12),
+                  color: color.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: color.withOpacity(0.3)),
+                  border: Border.all(color: color.withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -423,18 +659,43 @@ class _EditableItem extends StatelessWidget {
     required this.onRemove,
   });
 
+  Future<bool?> _confirmDelete(BuildContext context) {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('سڕینەوە', style: AppTheme.titleLarge),
+        content: Text('دڵنیایت لە سڕینەوەی ئەمە؟', style: AppTheme.bodyLarge),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('نەخێر',
+                style: TextStyle(color: AppTheme.onSurfaceMuted)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('بەڵێ، بسڕەوە',
+                style: TextStyle(color: AppTheme.error)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Dismissible(
       key: ValueKey(text),
       direction: DismissDirection.endToStart,
+      confirmDismiss: (_) => _confirmDelete(context),
       onDismissed: (_) => onRemove(),
       background: Container(
         margin: const EdgeInsets.fromLTRB(20, 0, 20, 10),
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
         decoration: BoxDecoration(
-          color: AppTheme.error.withOpacity(0.15),
+          color: AppTheme.error.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(14),
         ),
         child: const Icon(Icons.delete_outline, color: AppTheme.error),
@@ -468,7 +729,7 @@ class _ItemCard extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: AppTheme.cardGradient,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withOpacity(0.25)),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
       ),
       child: Row(
         children: [
@@ -492,8 +753,7 @@ class _EmptyHint extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
-      child: Text('هێشتا هیچی نەزیادکراوە',
-          style: AppTheme.bodyMedium),
+      child: Text('هێشتا هیچی نەزیادکراوە', style: AppTheme.bodyMedium),
     );
   }
 }

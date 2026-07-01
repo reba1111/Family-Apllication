@@ -1,8 +1,69 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if request.auth != null;
+    
+    // Check if the request is from an authenticated user
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Check if the current user is part of the specified couple
+    function isCoupleMember(coupleId) {
+      let couple = get(/databases/$(database)/documents/couples/$(coupleId)).data;
+      return isAuthenticated() && (couple.user1Id == request.auth.uid || couple.user2Id == request.auth.uid);
+    }
+    
+    // ---------------------------------------------------------
+    // USERS COLLECTION
+    // ---------------------------------------------------------
+    match /users/{userId} {
+      // Anyone authenticated can read user profiles (needed to fetch partner info)
+      allow read: if isAuthenticated();
+      
+      // Users can create and delete their own profile
+      allow create, delete: if isAuthenticated() && request.auth.uid == userId;
+      
+      // Users can update their own profile.
+      // Additionally, a partner can update the other user's profile ONLY to link the accounts (partnerId & coupleId).
+      allow update: if isAuthenticated() && (
+        request.auth.uid == userId ||
+        (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['coupleId', 'partnerId']) &&
+          request.resource.data.partnerId == request.auth.uid
+        )
+      );
+    }
+    
+    // ---------------------------------------------------------
+    // COUPLES COLLECTION
+    // ---------------------------------------------------------
+    match /couples/{coupleId} {
+      // Anyone authenticated can read couples (needed for the "enter couple code" lookup query)
+      allow read: if isAuthenticated();
+      
+      // Creating a new couple doc is allowed if the user sets themselves as user1Id
+      allow create: if isAuthenticated() && request.resource.data.user1Id == request.auth.uid;
+      
+      // Updating is allowed if the user is joining (user2Id was null) or they are already a member
+      allow update: if isAuthenticated() && (
+        resource.data.user2Id == null ||
+        resource.data.user1Id == request.auth.uid ||
+        resource.data.user2Id == request.auth.uid
+      );
+      
+      // Deleting is only allowed by members
+      allow delete: if isAuthenticated() && (
+        resource.data.user1Id == request.auth.uid ||
+        resource.data.user2Id == request.auth.uid
+      );
+      
+      // ---------------------------------------------------------
+      // SUBCOLLECTIONS (Lessons, Tasks, Quiz, Family)
+      // ---------------------------------------------------------
+      // Protect all subcollections dynamically. Only members of the couple can read or write to them.
+      match /{collectionName}/{docId} {
+        allow read, write: if isCoupleMember(coupleId);
+      }
     }
   }
 }

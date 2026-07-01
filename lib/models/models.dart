@@ -186,3 +186,115 @@ class FamilyMember {
         'addedBy': addedBy,
       };
 }
+
+class MemoryModel {
+  final String id;
+  final String title;
+  final String description;
+  final String? imageUrl;
+  final DateTime date;
+  final String createdBy;
+  final DateTime createdAt;
+
+  const MemoryModel({
+    required this.id,
+    required this.title,
+    required this.description,
+    this.imageUrl,
+    required this.date,
+    required this.createdBy,
+    required this.createdAt,
+  });
+
+  factory MemoryModel.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return MemoryModel(
+      id: doc.id,
+      title: data['title'] ?? '',
+      description: data['description'] ?? '',
+      imageUrl: data['imageUrl'],
+      date: (data['date'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      createdBy: data['createdBy'] ?? '',
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+    );
+  }
+
+  Map<String, dynamic> toFirestore() => {
+        'title': title,
+        'description': description,
+        'imageUrl': imageUrl,
+        'date': Timestamp.fromDate(date),
+        'createdBy': createdBy,
+        'createdAt': Timestamp.fromDate(createdAt),
+      };
+
+  MemoryModel copyWith({
+    String? title,
+    String? description,
+    String? imageUrl,
+    DateTime? date,
+  }) {
+    return MemoryModel(
+      id: id,
+      title: title ?? this.title,
+      description: description ?? this.description,
+      imageUrl: imageUrl ?? this.imageUrl,
+      date: date ?? this.date,
+      createdBy: createdBy,
+      createdAt: createdAt,
+    );
+  }
+}
+
+class NoteModel {
+  final String id;
+  final String content;
+  final String createdBy;
+  final DateTime unlockDate;
+  final bool isRead;
+  final DateTime createdAt;
+
+  const NoteModel({
+    required this.id,
+    required this.content,
+    required this.createdBy,
+    required this.unlockDate,
+    this.isRead = false,
+    required this.createdAt,
+  });
+
+  factory NoteModel.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return NoteModel(
+      id: doc.id,
+      content: data['content'] ?? '',
+      createdBy: data['createdBy'] ?? '',
+      unlockDate: (data['unlockDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      isRead: data['isRead'] ?? false,
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+    );
+  }
+
+  Map<String, dynamic> toFirestore() => {
+        'content': content,
+        'createdBy': createdBy,
+        'unlockDate': Timestamp.fromDate(unlockDate),
+        'isRead': isRead,
+        'createdAt': Timestamp.fromDate(createdAt),
+      };
+
+  NoteModel copyWith({
+    String? content,
+    DateTime? unlockDate,
+    bool? isRead,
+  }) {
+    return NoteModel(
+      id: id,
+      content: content ?? this.content,
+      createdBy: createdBy,
+      unlockDate: unlockDate ?? this.unlockDate,
+      isRead: isRead ?? this.isRead,
+      createdAt: createdAt,
+    );
+  }
+}

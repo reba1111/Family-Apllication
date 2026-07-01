@@ -100,12 +100,19 @@ class FirestoreService {
 
   Future<void> updateLikesDislikes({
     required String uid,
-    required List<String> likes,
-    required List<String> dislikes,
+    required Map<String, List<String>> likes,
+    required Map<String, List<String>> dislikes,
   }) async {
     await _db.collection(AppConstants.usersCollection).doc(uid).update({
       'likes': likes,
       'dislikes': dislikes,
+    });
+  }
+
+  Future<void> updateMood(String uid, String mood) async {
+    await _db.collection(AppConstants.usersCollection).doc(uid).update({
+      'currentMood': mood,
+      'moodUpdatedAt': FieldValue.serverTimestamp(),
     });
   }
 
@@ -128,6 +135,10 @@ class FirestoreService {
   Future<String> addLesson(String coupleId, LessonModel lesson) async {
     final ref = await _lessonsRef(coupleId).add(lesson.toFirestore());
     return ref.id;
+  }
+
+  Future<void> updateLesson(String coupleId, String lessonId, Map<String, dynamic> data) async {
+    await _lessonsRef(coupleId).doc(lessonId).update(data);
   }
 
   Future<void> deleteLesson(String coupleId, String lessonId) async {
@@ -153,6 +164,10 @@ class FirestoreService {
   Future<String> addTask(String coupleId, TaskModel task) async {
     final ref = await _tasksRef(coupleId).add(task.toFirestore());
     return ref.id;
+  }
+
+  Future<void> updateTask(String coupleId, String taskId, Map<String, dynamic> data) async {
+    await _tasksRef(coupleId).doc(taskId).update(data);
   }
 
   Future<void> toggleTask(String coupleId, String taskId, bool isDone) async {
@@ -181,6 +196,10 @@ class FirestoreService {
 
   Future<void> addQuiz(String coupleId, QuizModel quiz) async {
     await _quizRef(coupleId).add(quiz.toFirestore());
+  }
+
+  Future<void> updateQuiz(String coupleId, String quizId, Map<String, dynamic> data) async {
+    await _quizRef(coupleId).doc(quizId).update(data);
   }
 
   Future<void> answerQuiz({
@@ -223,9 +242,73 @@ class FirestoreService {
     await _familyRef(coupleId).add(member.toFirestore());
   }
 
+  Future<void> updateFamilyMember(String coupleId, String memberId, Map<String, dynamic> data) async {
+    await _familyRef(coupleId).doc(memberId).update(data);
+  }
+
   Future<void> deleteFamilyMember(
       String coupleId, String memberId) async {
     await _familyRef(coupleId).doc(memberId).delete();
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  // MEMORIES
+  // ─────────────────────────────────────────────────────────────────
+
+  CollectionReference _memoriesRef(String coupleId) => _db
+      .collection(AppConstants.couplesCollection)
+      .doc(coupleId)
+      .collection('memories');
+
+  Stream<List<MemoryModel>> streamMemories(String coupleId) {
+    return _memoriesRef(coupleId)
+        .orderBy('date', descending: true)
+        .snapshots()
+        .map((s) => s.docs.map((d) => MemoryModel.fromFirestore(d)).toList());
+  }
+
+  Future<void> addMemory(String coupleId, MemoryModel memory) async {
+    await _memoriesRef(coupleId).add(memory.toFirestore());
+  }
+
+  Future<void> updateMemory(String coupleId, String memoryId, MemoryModel memory) async {
+    await _memoriesRef(coupleId).doc(memoryId).update(memory.toFirestore());
+  }
+
+  Future<void> deleteMemory(String coupleId, String memoryId) async {
+    await _memoriesRef(coupleId).doc(memoryId).delete();
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  // NOTES (Secret Love Notes)
+  // ─────────────────────────────────────────────────────────────────
+
+  CollectionReference _notesRef(String coupleId) => _db
+      .collection(AppConstants.couplesCollection)
+      .doc(coupleId)
+      .collection('notes');
+
+  Stream<List<NoteModel>> streamNotes(String coupleId) {
+    return _notesRef(coupleId)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((s) => s.docs.map((d) => NoteModel.fromFirestore(d)).toList());
+  }
+
+  Future<void> addNote(String coupleId, NoteModel note) async {
+    await _notesRef(coupleId).add(note.toFirestore());
+  }
+
+  Future<void> updateNote(String coupleId, String noteId, NoteModel note) async {
+    await _notesRef(coupleId).doc(noteId).update(note.toFirestore());
+  }
+
+  Future<void> deleteNote(String coupleId, String noteId) async {
+    await _notesRef(coupleId).doc(noteId).delete();
+  }
+
+  Future<void> markNoteAsRead(String coupleId, String noteId) async {
+    await _notesRef(coupleId).doc(noteId).update({'isRead': true});
   }
 
   // ─────────────────────────────────────────────────────────────────

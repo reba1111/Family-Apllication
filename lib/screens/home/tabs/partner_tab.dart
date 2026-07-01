@@ -77,14 +77,14 @@ class PartnerTab extends StatelessWidget {
                   // Partner likes
                   _InfoCard(
                     title: '❤️ حەزەکانی',
-                    items: partner.likes,
+                    itemsMap: partner.likes,
                     color: AppTheme.primary,
                     emptyMsg: 'هێشتا هیچی نەنووستووە',
                   ),
                   const SizedBox(height: 14),
                   _InfoCard(
                     title: '💔 حەزی پێی نییە',
-                    items: partner.dislikes,
+                    itemsMap: partner.dislikes,
                     color: AppTheme.error,
                     emptyMsg: 'هێشتا هیچی نەنووستووە',
                   ),
@@ -100,19 +100,26 @@ class PartnerTab extends StatelessWidget {
 
 class _InfoCard extends StatelessWidget {
   final String title;
-  final List<String> items;
+  final Map<String, List<String>> itemsMap;
   final Color color;
   final String emptyMsg;
 
   const _InfoCard({
     required this.title,
-    required this.items,
+    required this.itemsMap,
     required this.color,
     required this.emptyMsg,
   });
 
   @override
   Widget build(BuildContext context) {
+    final allItems = <String>[];
+    for (final entry in itemsMap.entries) {
+      if (entry.value.isNotEmpty) {
+        allItems.add('${entry.key}: ${entry.value.join('، ')}');
+      }
+    }
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
@@ -128,12 +135,12 @@ class _InfoCard extends StatelessWidget {
         children: [
           Text(title, style: AppTheme.titleLarge),
           const SizedBox(height: 12),
-          items.isEmpty
+          allItems.isEmpty
               ? Text(emptyMsg, style: AppTheme.bodyMedium)
               : Wrap(
                   spacing: 8,
                   runSpacing: 6,
-                  children: items
+                  children: allItems
                       .map((item) => Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 10, vertical: 4),

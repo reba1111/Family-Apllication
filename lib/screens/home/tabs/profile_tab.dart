@@ -87,7 +87,8 @@ class ProfileTab extends StatelessWidget {
                     : Wrap(
                         spacing: 8,
                         runSpacing: 6,
-                        children: user.likes
+                        children: user.likes.values
+                            .expand((v) => v)
                             .take(5)
                             .map((l) => _Tag(l, AppTheme.primary))
                             .toList(),
@@ -110,7 +111,8 @@ class ProfileTab extends StatelessWidget {
                     : Wrap(
                         spacing: 8,
                         runSpacing: 6,
-                        children: user.dislikes
+                        children: user.dislikes.values
+                            .expand((v) => v)
                             .take(5)
                             .map((d) => _Tag(d, AppTheme.error))
                             .toList(),

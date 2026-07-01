@@ -16,10 +16,10 @@ class FamilyScreen extends StatefulWidget {
 class _FamilyScreenState extends State<FamilyScreen> {
   final _fs = FirestoreService();
 
-  void _showAddDialog() {
-    final nameCtrl = TextEditingController();
-    final relationCtrl = TextEditingController();
-    DateTime? birthday;
+  void _showAddEditDialog({FamilyMember? editMember}) {
+    final nameCtrl = TextEditingController(text: editMember?.name ?? '');
+    final relationCtrl = TextEditingController(text: editMember?.relation ?? '');
+    DateTime? birthday = editMember?.birthday;
 
     showModalBottomSheet(
       context: context,
@@ -36,7 +36,7 @@ class _FamilyScreenState extends State<FamilyScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('زیادکردنی ئەندامی خێزان',
+              Text(editMember == null ? 'زیادکردنی ئەندامی خێزان' : 'دەستکاریکردنی ئەندامی خێزان',
                   style: AppTheme.headlineMedium),
               const SizedBox(height: 20),
               TextField(
@@ -94,25 +94,82 @@ class _FamilyScreenState extends State<FamilyScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: () async {
-                  if (nameCtrl.text.trim().isEmpty) return;
-                  final member = FamilyMember(
-                    id: '',
-                    name: nameCtrl.text.trim(),
-                    relation: relationCtrl.text.trim(),
-                    birthday: birthday,
-                    addedBy:
-                        FirebaseAuth.instance.currentUser?.uid ?? '',
-                  );
-                  await _fs.addFamilyMember(widget.coupleId, member);
-                  if (ctx.mounted) Navigator.pop(ctx);
-                },
-                child: const Text('زیادکردن'),
-              ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () async {
+                            if (nameCtrl.text.trim().isEmpty) return;
+                            final member = FamilyMember(
+                              id: editMember?.id ?? '',
+                              name: nameCtrl.text.trim(),
+                              relation: relationCtrl.text.trim(),
+                              birthday: birthday,
+                              addedBy: editMember?.addedBy ??
+                                  FirebaseAuth.instance.currentUser?.uid ?? '',
+                            );
+                            if (editMember != null) {
+                              await _fs.updateFamilyMember(widget.coupleId, editMember.id, member.toFirestore());
+                            } else {
+                              await _fs.addFamilyMember(widget.coupleId, member);
+                            }
+                            if (ctx.mounted) Navigator.pop(ctx);
+                          },
+                          child: Text(editMember == null ? 'زیادکردن' : 'پاشەکەوتکردن'),
+                        ),
+                      ),
+                      if (editMember != null) ...[
+                        const SizedBox(width: 12),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline, color: AppTheme.error),
+                          onPressed: () async {
+                            final confirm = await showDialog<bool>(
+                              context: ctx,
+                              builder: (c) => AlertDialog(
+                                backgroundColor: AppTheme.surface,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                title: Text('سڕینەوە', style: AppTheme.titleLarge),
+                                content: Text('دڵنیایت لە سڕینەوەی ئەم ئەندامەی خێزان؟', style: AppTheme.bodyLarge),
+                                actions: [
+                                  TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('نەخێر', style: TextStyle(color: AppTheme.onSurfaceMuted))),
+                                  TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('بەڵێ، بسڕەوە', style: TextStyle(color: AppTheme.error))),
+                                ],
+                              ),
+                            );
+                            if (confirm == true) {
+                              await _fs.deleteFamilyMember(widget.coupleId, editMember.id);
+                              if (ctx.mounted) Navigator.pop(ctx);
+                            }
+                          },
+                        ),
+                      ],
+                    ],
+                  ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Future<bool?> _confirmDelete(BuildContext context) {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('سڕینەوە', style: AppTheme.titleLarge),
+        content: Text('دڵنیایت لە سڕینەوەی ئەم ئەندامەی خێزان؟', style: AppTheme.bodyLarge),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('نەخێر', style: TextStyle(color: AppTheme.onSurfaceMuted)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('بەڵێ، بسڕەوە', style: TextStyle(color: AppTheme.error)),
+          ),
+        ],
       ),
     );
   }
@@ -177,9 +234,11 @@ class _FamilyScreenState extends State<FamilyScreen> {
                         final bday = m.birthday != null
                             ? DateFormat('yyyy/MM/dd').format(m.birthday!)
                             : null;
+
                         return Dismissible(
                           key: ValueKey(m.id),
                           direction: DismissDirection.endToStart,
+                          confirmDismiss: (_) => _confirmDelete(context),
                           onDismissed: (_) =>
                               _fs.deleteFamilyMember(widget.coupleId, m.id),
                           background: Container(
@@ -193,67 +252,70 @@ class _FamilyScreenState extends State<FamilyScreen> {
                             child: const Icon(Icons.delete_outline,
                                 color: AppTheme.error),
                           ),
-                          child: Container(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              gradient: AppTheme.cardGradient,
-                              borderRadius: BorderRadius.circular(16),
-                              border: const Border.fromBorderSide(
-                                BorderSide(color: Color(0xFF2A2A40)),
+                          child: GestureDetector(
+                            onTap: () => _showAddEditDialog(editMember: m),
+                            child: Container(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                gradient: AppTheme.cardGradient,
+                                borderRadius: BorderRadius.circular(16),
+                                border: const Border.fromBorderSide(
+                                  BorderSide(color: Color(0xFF2A2A40)),
+                                ),
                               ),
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 48,
-                                  height: 48,
-                                  decoration: BoxDecoration(
-                                    color:
-                                        AppTheme.primary.withOpacity(0.15),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      m.name[0].toUpperCase(),
-                                      style: AppTheme.titleLarge.copyWith(
-                                          color: AppTheme.primary),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 48,
+                                    height: 48,
+                                    decoration: BoxDecoration(
+                                      color:
+                                          AppTheme.primary.withOpacity(0.15),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        m.name[0].toUpperCase(),
+                                        style: AppTheme.titleLarge.copyWith(
+                                            color: AppTheme.primary),
+                                      ),
                                     ),
                                   ),
-                                ),
-                                const SizedBox(width: 14),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(m.name,
-                                          style: AppTheme.bodyLarge
-                                              .copyWith(
-                                                  fontWeight:
-                                                      FontWeight.w600)),
-                                      const SizedBox(height: 2),
-                                      Text(m.relation,
-                                          style: AppTheme.bodyMedium),
-                                      if (bday != null) ...[
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(m.name,
+                                            style: AppTheme.bodyLarge
+                                                .copyWith(
+                                                    fontWeight:
+                                                        FontWeight.w600)),
                                         const SizedBox(height: 2),
-                                        Row(
-                                          children: [
-                                            const Icon(Icons.cake_outlined,
-                                                size: 13,
-                                                color:
-                                                    AppTheme.onSurfaceMuted),
-                                            const SizedBox(width: 4),
-                                            Text(bday,
-                                                style: AppTheme.bodyMedium
-                                                    .copyWith(fontSize: 12)),
-                                          ],
-                                        ),
+                                        Text(m.relation,
+                                            style: AppTheme.bodyMedium),
+                                        if (bday != null) ...[
+                                          const SizedBox(height: 2),
+                                          Row(
+                                            children: [
+                                              const Icon(Icons.cake_outlined,
+                                                  size: 13,
+                                                  color:
+                                                      AppTheme.onSurfaceMuted),
+                                              const SizedBox(width: 4),
+                                              Text(bday,
+                                                  style: AppTheme.bodyMedium
+                                                      .copyWith(fontSize: 12)),
+                                            ],
+                                          ),
+                                        ],
                                       ],
-                                    ],
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         );
@@ -267,7 +329,7 @@ class _FamilyScreenState extends State<FamilyScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showAddDialog,
+        onPressed: () => _showAddEditDialog(),
         backgroundColor: AppTheme.primary,
         icon: const Icon(Icons.person_add_outlined, color: Colors.white),
         label: const Text('زیادکردن',

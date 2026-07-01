@@ -34,12 +34,12 @@ class _LessonsScreenState extends State<LessonsScreen> {
     super.dispose();
   }
 
-  void _showAddDialog() {
-    final titleCtrl = TextEditingController();
-    final subjectCtrl = TextEditingController();
-    DateTime? selectedDate;
-    TimeOfDay? selectedTime;
-    int notifyBefore = 15;
+  void _showAddEditDialog({LessonModel? editLesson}) {
+    final titleCtrl = TextEditingController(text: editLesson?.title ?? '');
+    final subjectCtrl = TextEditingController(text: editLesson?.subject ?? '');
+    DateTime? selectedDate = editLesson?.dateTime;
+    TimeOfDay? selectedTime = editLesson != null ? TimeOfDay.fromDateTime(editLesson.dateTime) : null;
+    int notifyBefore = editLesson?.notifyMinutesBefore ?? 15;
 
     showModalBottomSheet(
       context: context,
@@ -57,7 +57,7 @@ class _LessonsScreenState extends State<LessonsScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('زیادکردنی وانە 📚', style: AppTheme.headlineMedium),
+                Text(editLesson == null ? 'زیادکردنی وانە 📚' : 'دەستکاریکردنی وانە 📚', style: AppTheme.headlineMedium),
                 const SizedBox(height: 20),
 
                 TextField(
@@ -159,40 +159,85 @@ class _LessonsScreenState extends State<LessonsScreen> {
                 ),
 
                 const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: () async {
-                    if (titleCtrl.text.trim().isEmpty ||
-                        selectedDate == null ||
-                        selectedTime == null) return;
-                    final dt = DateTime(
-                      selectedDate!.year,
-                      selectedDate!.month,
-                      selectedDate!.day,
-                      selectedTime!.hour,
-                      selectedTime!.minute,
-                    );
-                    final lesson = LessonModel(
-                      id: '',
-                      title: titleCtrl.text.trim(),
-                      subject: subjectCtrl.text.trim(),
-                      dateTime: dt,
-                      notifyMinutesBefore: notifyBefore,
-                      createdBy:
-                          FirebaseAuth.instance.currentUser?.uid ?? '',
-                    );
-                    final id =
-                        await _fs.addLesson(widget.coupleId, lesson);
-                    await _notif.scheduleLesson(
-                      id: id.hashCode,
-                      title: lesson.title,
-                      subject: lesson.subject,
-                      dateTime: dt,
-                      minutesBefore: notifyBefore,
-                    );
-                    if (ctx.mounted) Navigator.pop(ctx);
-                  },
-                  child: const Text('زیادکردن و دامەزراندنی ئاگادارکردن'),
-                ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () async {
+                            if (titleCtrl.text.trim().isEmpty ||
+                                selectedDate == null ||
+                                selectedTime == null) return;
+                            final dt = DateTime(
+                              selectedDate!.year,
+                              selectedDate!.month,
+                              selectedDate!.day,
+                              selectedTime!.hour,
+                              selectedTime!.minute,
+                            );
+                            var lesson = LessonModel(
+                              id: '',
+                              title: titleCtrl.text.trim(),
+                              subject: subjectCtrl.text.trim(),
+                              dateTime: dt,
+                              notifyMinutesBefore: notifyBefore,
+                              createdBy:
+                                  FirebaseAuth.instance.currentUser?.uid ?? '',
+                            );
+                            if (editLesson != null) {
+                              await _fs.updateLesson(widget.coupleId, editLesson.id, lesson.toFirestore());
+                              await _notif.cancelLesson(editLesson.id.hashCode);
+                            } else {
+                              final id = await _fs.addLesson(widget.coupleId, lesson);
+                              lesson = LessonModel(
+                                id: id,
+                                title: lesson.title,
+                                subject: lesson.subject,
+                                dateTime: lesson.dateTime,
+                                notifyMinutesBefore: lesson.notifyMinutesBefore,
+                                createdBy: lesson.createdBy,
+                              );
+                            }
+
+                            await _notif.scheduleLesson(
+                              id: editLesson?.id.hashCode ?? lesson.id.hashCode,
+                              title: lesson.title,
+                              subject: lesson.subject,
+                              dateTime: dt,
+                              minutesBefore: notifyBefore,
+                            );
+                            if (ctx.mounted) Navigator.pop(ctx);
+                          },
+                          child: Text(editLesson == null ? 'زیادکردنی وانە' : 'پاشەکەوتکردن'),
+                        ),
+                      ),
+                      if (editLesson != null) ...[
+                        const SizedBox(width: 12),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline, color: AppTheme.error),
+                          onPressed: () async {
+                            final confirm = await showDialog<bool>(
+                              context: ctx,
+                              builder: (c) => AlertDialog(
+                                backgroundColor: AppTheme.surface,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                title: Text('سڕینەوە', style: AppTheme.titleLarge),
+                                content: Text('دڵنیایت لە سڕینەوەی ئەم وانەیە؟', style: AppTheme.bodyLarge),
+                                actions: [
+                                  TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('نەخێر', style: TextStyle(color: AppTheme.onSurfaceMuted))),
+                                  TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('بەڵێ، بسڕەوە', style: TextStyle(color: AppTheme.error))),
+                                ],
+                              ),
+                            );
+                            if (confirm == true) {
+                              await _fs.deleteLesson(widget.coupleId, editLesson.id);
+                              await _notif.cancelLesson(editLesson.id.hashCode);
+                              if (ctx.mounted) Navigator.pop(ctx);
+                            }
+                          },
+                        ),
+                      ],
+                    ],
+                  ),
               ],
             ),
           ),
@@ -274,13 +319,14 @@ class _LessonsScreenState extends State<LessonsScreen> {
                           ),
                           SliverList(
                             delegate: SliverChildBuilderDelegate(
-                              (_, i) => _LessonCard(
-                                lesson: upcoming[i],
-                                coupleId: widget.coupleId,
-                                isPast: false,
-                                fs: _fs,
-                                notif: _notif,
-                              ),
+                                (_, i) => _LessonCard(
+                                  lesson: upcoming[i],
+                                  coupleId: widget.coupleId,
+                                  isPast: false,
+                                  fs: _fs,
+                                  notif: _notif,
+                                  onTap: () => _showAddEditDialog(editLesson: upcoming[i]),
+                                ),
                               childCount: upcoming.length,
                             ),
                           ),
@@ -294,13 +340,14 @@ class _LessonsScreenState extends State<LessonsScreen> {
                           ),
                           SliverList(
                             delegate: SliverChildBuilderDelegate(
-                              (_, i) => _LessonCard(
-                                lesson: past[i],
-                                coupleId: widget.coupleId,
-                                isPast: true,
-                                fs: _fs,
-                                notif: _notif,
-                              ),
+                                (_, i) => _LessonCard(
+                                  lesson: past[i],
+                                  coupleId: widget.coupleId,
+                                  isPast: true,
+                                  fs: _fs,
+                                  notif: _notif,
+                                  onTap: () => _showAddEditDialog(editLesson: past[i]),
+                                ),
                               childCount: past.length,
                             ),
                           ),
@@ -318,7 +365,7 @@ class _LessonsScreenState extends State<LessonsScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showAddDialog,
+        onPressed: () => _showAddEditDialog(),
         backgroundColor: AppTheme.primary,
         icon: const Icon(Icons.add, color: Colors.white),
         label: const Text('وانەی نوێ',
@@ -421,19 +468,45 @@ class _LessonCard extends StatelessWidget {
   final FirestoreService fs;
   final NotificationService notif;
 
+  final void Function() onTap;
+
   const _LessonCard({
     required this.lesson,
     required this.coupleId,
     required this.isPast,
     required this.fs,
     required this.notif,
+    required this.onTap,
   });
+
+  Future<bool?> _confirmDelete(BuildContext context) {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('سڕینەوە', style: AppTheme.titleLarge),
+        content: Text('دڵنیایت لە سڕینەوەی ئەم وانەیە؟', style: AppTheme.bodyLarge),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('نەخێر', style: TextStyle(color: AppTheme.onSurfaceMuted)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('بەڵێ، بسڕەوە', style: TextStyle(color: AppTheme.error)),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Dismissible(
       key: ValueKey(lesson.id),
       direction: DismissDirection.endToStart,
+      confirmDismiss: (_) => _confirmDelete(context),
       onDismissed: (_) {
         fs.deleteLesson(coupleId, lesson.id);
         notif.cancelLesson(lesson.id.hashCode);
@@ -448,99 +521,102 @@ class _LessonCard extends StatelessWidget {
         ),
         child: const Icon(Icons.delete_outline, color: AppTheme.error),
       ),
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          gradient: AppTheme.cardGradient,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: isPast
-                ? AppTheme.onSurfaceMuted.withValues(alpha: 0.15)
-                : AppTheme.primary.withValues(alpha: 0.3),
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 50,
-              height: 50,
-              decoration: BoxDecoration(
-                color: isPast
-                    ? AppTheme.onSurfaceMuted.withValues(alpha: 0.1)
-                    : AppTheme.primary.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Center(
-                child: Text(isPast ? '✅' : '📖',
-                    style: const TextStyle(fontSize: 22)),
-              ),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          margin: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: AppTheme.cardGradient,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: isPast
+                  ? AppTheme.onSurfaceMuted.withValues(alpha: 0.15)
+                  : AppTheme.primary.withValues(alpha: 0.3),
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    lesson.title,
-                    style: AppTheme.bodyLarge.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: isPast
-                          ? AppTheme.onSurfaceMuted
-                          : AppTheme.onSurface,
-                    ),
-                  ),
-                  if (lesson.subject.isNotEmpty) ...[
-                    const SizedBox(height: 2),
-                    Text(lesson.subject, style: AppTheme.bodyMedium),
-                  ],
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Icon(Icons.access_time_rounded,
-                          size: 13,
-                          color: isPast
-                              ? AppTheme.onSurfaceMuted
-                              : AppTheme.primary),
-                      const SizedBox(width: 4),
-                      Text(
-                        DateFormat('yyyy/MM/dd  HH:mm')
-                            .format(lesson.dateTime),
-                        style: AppTheme.bodyMedium.copyWith(
-                          fontSize: 12,
-                          color: isPast
-                              ? AppTheme.onSurfaceMuted
-                              : AppTheme.primary,
-                        ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: isPast
+                      ? AppTheme.onSurfaceMuted.withValues(alpha: 0.1)
+                      : AppTheme.primary.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Center(
+                  child: Text(isPast ? '✅' : '📖',
+                      style: const TextStyle(fontSize: 22)),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      lesson.title,
+                      style: AppTheme.bodyLarge.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: isPast
+                            ? AppTheme.onSurfaceMuted
+                            : AppTheme.onSurface,
                       ),
+                    ),
+                    if (lesson.subject.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(lesson.subject, style: AppTheme.bodyMedium),
+                    ],
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(Icons.access_time_rounded,
+                            size: 13,
+                            color: isPast
+                                ? AppTheme.onSurfaceMuted
+                                : AppTheme.primary),
+                        const SizedBox(width: 4),
+                        Text(
+                          DateFormat('yyyy/MM/dd  HH:mm')
+                              .format(lesson.dateTime),
+                          style: AppTheme.bodyMedium.copyWith(
+                            fontSize: 12,
+                            color: isPast
+                                ? AppTheme.onSurfaceMuted
+                                : AppTheme.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              if (!isPast)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.notifications_active_outlined,
+                          size: 13, color: AppTheme.primary),
+                      const SizedBox(width: 4),
+                      Text('${lesson.notifyMinutesBefore}خ',
+                          style: const TextStyle(
+                              fontSize: 11,
+                              color: AppTheme.primary,
+                              fontWeight: FontWeight.w600)),
                     ],
                   ),
-                ],
-              ),
-            ),
-            if (!isPast)
-              Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppTheme.primary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.notifications_active_outlined,
-                        size: 13, color: AppTheme.primary),
-                    const SizedBox(width: 4),
-                    Text('${lesson.notifyMinutesBefore}خ',
-                        style: const TextStyle(
-                            fontSize: 11,
-                            color: AppTheme.primary,
-                            fontWeight: FontWeight.w600)),
-                  ],
-                ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
