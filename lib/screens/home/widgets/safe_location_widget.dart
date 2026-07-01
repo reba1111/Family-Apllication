@@ -88,64 +88,114 @@ class _SafeLocationWidgetState extends State<SafeLocationWidget> {
     }
   }
 
+  int _currentTab = 0;
+
   @override
   Widget build(BuildContext context) {
+    final hasPartner = widget.partnerId != null;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('سەلامەتی و لۆکەیشن', style: AppTheme.headlineMedium),
         const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppTheme.surface,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFF2A2A40)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('لۆکەیشنەکەم بنێرە', style: AppTheme.bodyLarge),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: _isLoading ? null : () => _shareLocation('من لێرەم 📍'),
-                      icon: const Icon(Icons.location_on, size: 18),
-                      label: const Text('من لێرەم', style: TextStyle(fontSize: 12)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+        
+        // Custom Tab Selector
+        if (hasPartner)
+          Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: AppTheme.surfaceVariant,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => setState(() => _currentTab = 0),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        gradient: _currentTab == 0 ? AppTheme.primaryGradient : null,
+                        borderRadius: BorderRadius.circular(12),
                       ),
+                      alignment: Alignment.center,
+                      child: Text('من', style: AppTheme.labelLarge.copyWith(color: _currentTab == 0 ? Colors.white : AppTheme.onSurfaceMuted)),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: _isLoading ? null : () => _shareLocation('گەیشتمە ماڵەوە 🏠'),
-                      icon: const Icon(Icons.home, size: 18),
-                      label: const Text('گەیشتم', style: TextStyle(fontSize: 12)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.success,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              if (_isLoading)
-                const Padding(
-                  padding: EdgeInsets.only(top: 16),
-                  child: Center(child: CircularProgressIndicator()),
                 ),
-            ],
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => setState(() => _currentTab = 1),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        gradient: _currentTab == 1 ? AppTheme.primaryGradient : null,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text('هاوسەرەکەم', style: AppTheme.labelLarge.copyWith(color: _currentTab == 1 ? Colors.white : AppTheme.onSurfaceMuted)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        if (widget.partnerId != null) ...[
-          const SizedBox(height: 16),
+
+        // Tab Content
+        if (_currentTab == 0 || !hasPartner)
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppTheme.surface,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFF2A2A40)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('لۆکەیشنەکەم بنێرە', style: AppTheme.bodyLarge),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _isLoading ? null : () => _shareLocation('من لێرەم 📍'),
+                        icon: const Icon(Icons.location_on, size: 18),
+                        label: const Text('من لێرەم', style: TextStyle(fontSize: 12)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _isLoading ? null : () => _shareLocation('گەیشتمە ماڵەوە 🏠'),
+                        icon: const Icon(Icons.home, size: 18),
+                        label: const Text('گەیشتم', style: TextStyle(fontSize: 12)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.success,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (_isLoading)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 16),
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+              ],
+            ),
+          ),
+        
+        if (_currentTab == 1 && hasPartner)
           StreamBuilder<UserModel?>(
             stream: fs.streamUser(widget.partnerId!),
             builder: (context, snapshot) {
@@ -153,7 +203,12 @@ class _SafeLocationWidgetState extends State<SafeLocationWidget> {
               final partner = snapshot.data!;
 
               if (partner.lastLocationLat == null || partner.lastLocationLng == null) {
-                return const SizedBox();
+                return Container(
+                  padding: const EdgeInsets.all(20),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(color: AppTheme.surface, borderRadius: BorderRadius.circular(16)),
+                  child: const Text('هێشتا لۆکەیشنی نەناردووە', style: TextStyle(color: Colors.white54)),
+                );
               }
 
               final timeAgo = _getTimeAgo(partner.locationUpdatedAt);
@@ -211,7 +266,7 @@ class _SafeLocationWidgetState extends State<SafeLocationWidget> {
                     ),
                   ),
 
-                  // History list (already loaded — no extra DB read!)
+                  // History list
                   if (partner.locationHistory.length > 1) ...[
                     const SizedBox(height: 12),
                     Padding(
@@ -254,7 +309,6 @@ class _SafeLocationWidgetState extends State<SafeLocationWidget> {
               );
             },
           ),
-        ],
       ],
     );
   }

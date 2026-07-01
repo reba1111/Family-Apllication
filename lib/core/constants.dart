@@ -16,5 +16,5 @@ class AppConstants {
   static const int taskNotificationBase = 6000;
 
   // App Info
-  static const String appName = 'Couple ❤️';
+  static const String appName = 'Family ❤️';
 }

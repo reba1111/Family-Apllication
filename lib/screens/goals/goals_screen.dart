@@ -304,10 +304,32 @@ class _GoalCard extends StatelessWidget {
                   text = text.replaceAll(persian[i], english[i]);
                 }
                 
+                // Remove dots if they are used as thousands separator
+                if (text.split('.').length > 2) {
+                  text = text.replaceAll('.', '');
+                }
+
                 final amount = double.tryParse(text);
                 if (amount != null && amount > 0) {
-                  Navigator.pop(context);
-                  await fs.addFundsToGoal(coupleId, goal.id, amount, currentUserId);
+                  Navigator.pop(context); // Close dialog first
+                  try {
+                    await fs.addFundsToGoal(coupleId, goal.id, amount, currentUserId);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('پارەکە بە سەرکەوتوویی زیادکرا! 🎉'), backgroundColor: AppTheme.success),
+                      );
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('هەڵەیەک ڕوویدا: $e'), backgroundColor: AppTheme.error),
+                      );
+                    }
+                  }
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('تکایە ژمارەیەکی دروست بنووسە'), backgroundColor: AppTheme.error),
+                  );
                 }
               },
               child: const Text('زیادکردن', style: TextStyle(color: Colors.white)),

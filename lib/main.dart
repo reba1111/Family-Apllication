@@ -38,16 +38,16 @@ Future<void> main() async {
 
   await NotificationService().init();
 
-  runApp(const CoupleApp());
+  runApp(const FamilyApp());
 }
 
-class CoupleApp extends StatelessWidget {
-  const CoupleApp({super.key});
+class FamilyApp extends StatelessWidget {
+  const FamilyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Couple ❤️',
+      title: 'Family ❤️',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
       home: const _AuthGate(),

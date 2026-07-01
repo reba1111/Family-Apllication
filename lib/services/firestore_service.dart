@@ -109,7 +109,7 @@ class FirestoreService {
     });
   }
 
-  Future<void> updateMood(String uid, String mood) async {
+  Future<void> updateMood(String uid, String? mood) async {
     await _db.collection(AppConstants.usersCollection).doc(uid).update({
       'currentMood': mood,
       'moodUpdatedAt': FieldValue.serverTimestamp(),

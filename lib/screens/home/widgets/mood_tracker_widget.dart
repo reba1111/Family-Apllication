@@ -87,7 +87,13 @@ class _MyMoodSelector extends StatelessWidget {
                 final isSelected = currentMood == m['label'];
                 return GestureDetector(
                   behavior: HitTestBehavior.opaque,
-                  onTap: () => fs.updateMood(uid, m['label']!),
+                  onTap: () {
+                    if (isSelected) {
+                      fs.updateMood(uid, null);
+                    } else {
+                      fs.updateMood(uid, m['label']!);
+                    }
+                  },
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     margin: const EdgeInsets.only(left: 12),
