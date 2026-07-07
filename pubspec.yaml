@@ -41,6 +41,9 @@ dependencies:
   shared_preferences: ^2.3.2
   geolocator: ^13.0.1
   url_launcher: ^6.3.0
+  firebase_messaging: ^15.2.10
+  googleapis_auth: ^2.3.2
+  http: ^1.6.0
 
 dev_dependencies:
   flutter_test:
@@ -61,3 +64,4 @@ flutter:
   assets:
     - assets/images/
     - assets/animations/
+    - assets/service_account.json

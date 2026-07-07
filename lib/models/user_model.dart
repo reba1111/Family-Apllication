@@ -47,6 +47,7 @@ class UserModel {
   final DateTime? locationUpdatedAt;
   // Last 5 location entries stored inside the user document (no extra collection)
   final List<LocationEntry> locationHistory;
+  final String? fcmToken;
 
   const UserModel({
     required this.uid,
@@ -64,6 +65,7 @@ class UserModel {
     this.locationStatus,
     this.locationUpdatedAt,
     this.locationHistory = const [],
+    this.fcmToken,
   });
 
   static Map<String, List<String>> _parseCategorizedList(dynamic data) {
@@ -104,6 +106,7 @@ class UserModel {
       locationStatus: data['locationStatus'],
       locationUpdatedAt: (data['locationUpdatedAt'] as Timestamp?)?.toDate(),
       locationHistory: history,
+      fcmToken: data['fcmToken'],
     );
   }
 
@@ -122,6 +125,7 @@ class UserModel {
         if (locationStatus != null) 'locationStatus': locationStatus,
         if (locationUpdatedAt != null) 'locationUpdatedAt': Timestamp.fromDate(locationUpdatedAt!),
         'locationHistory': locationHistory.map((e) => e.toMap()).toList(),
+        if (fcmToken != null) 'fcmToken': fcmToken,
       };
 
   UserModel copyWith({
@@ -133,6 +137,7 @@ class UserModel {
     String? currentMood,
     DateTime? moodUpdatedAt,
     List<LocationEntry>? locationHistory,
+    String? fcmToken,
   }) {
     return UserModel(
       uid: uid,
@@ -146,6 +151,7 @@ class UserModel {
       currentMood: currentMood ?? this.currentMood,
       moodUpdatedAt: moodUpdatedAt ?? this.moodUpdatedAt,
       locationHistory: locationHistory ?? this.locationHistory,
+      fcmToken: fcmToken ?? this.fcmToken,
     );
   }
 }

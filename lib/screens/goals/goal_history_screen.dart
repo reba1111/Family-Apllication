@@ -27,174 +27,257 @@ class GoalHistoryScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: Text('${goal.icon} ${goal.title}'),
+        title: const Text('مێژووی پاشەکەوت'),
         backgroundColor: Colors.transparent,
         elevation: 0,
+        centerTitle: true,
       ),
-      body: Column(
-        children: [
-          // Goal Summary Header
-          Container(
-            padding: const EdgeInsets.all(20),
-            margin: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: AppTheme.primaryGradient,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('کۆکراوەی ئێستا', style: TextStyle(color: Colors.white70)),
-                    const SizedBox(height: 4),
-                    Text(
-                      '$currencyPrefix${formatCurrency.format(goal.currentAmount)}$currencySuffix',
-                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
-                    ),
-                  ],
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    const Text('ئامانج', style: TextStyle(color: Colors.white70)),
-                    const SizedBox(height: 4),
-                    Text(
-                      '$currencyPrefix${formatCurrency.format(goal.targetAmount)}$currencySuffix',
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-            child: Row(
-              children: [
-                const Icon(Icons.history, color: AppTheme.primary),
-                const SizedBox(width: 8),
-                Text('مێژووی زیادکردنی پارە', style: AppTheme.titleLarge),
-              ],
-            ),
-          ),
-
-          Expanded(
-            child: StreamBuilder<List<GoalTransactionModel>>(
-              stream: fs.streamGoalTransactions(coupleId, goal.id),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (snapshot.hasError) {
-                  // If Firestore index is missing, error message will contain a link to create it
-                  final err = snapshot.error.toString();
-                  final indexLink = err.contains('https://') 
-                      ? err.substring(err.indexOf('https://')) 
-                      : null;
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.error_outline, color: Colors.redAccent, size: 48),
-                          const SizedBox(height: 12),
-                          const Text('هەڵەیەک ڕوویدا', style: TextStyle(color: Colors.white, fontSize: 16)),
-                          if (indexLink != null) ...[
-                            const SizedBox(height: 8),
-                            const Text('پێویستە لە فایرستۆر ئیندێکس دروست بکەیت.\nبۆ ئەوەی ئیندێکسەکە دروست بکەیت، لینکی ئەرۆری کنسۆڵەکە بدەرۆ و کلیکی بکە.',
-                              style: TextStyle(color: Colors.white54, fontSize: 12),
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
+      body: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
+        slivers: [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                children: [
+                  // GOAL SUMMARY CARD (Bank Card Style)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(24),
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          AppTheme.primary,
+                          AppTheme.primary.withOpacity(0.6),
                         ],
                       ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppTheme.primary.withOpacity(0.4),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
                     ),
-                  );
-                }
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(goal.icon, style: const TextStyle(fontSize: 32)),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                goal.isCompleted ? 'تەواوبوو' : 'بەردەوامە',
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        const Text('کۆکراوەی ئێستا', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                        const SizedBox(height: 4),
+                        Text(
+                          '$currencyPrefix${formatCurrency.format(goal.currentAmount)}$currencySuffix',
+                          style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 24),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('ئامانجی کۆتایی', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '$currencyPrefix${formatCurrency.format(goal.targetAmount)}$currencySuffix',
+                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                                ),
+                              ],
+                            ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                const Text('بەروار', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                                const SizedBox(height: 4),
+                                Text(
+                                  DateFormat('yyyy/MM/dd').format(goal.targetDate),
+                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppTheme.surface,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.receipt_long_rounded, color: Colors.white70, size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      Text('مێژووی زیادکردنی پارە', style: AppTheme.titleLarge),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          StreamBuilder<List<GoalTransactionModel>>(
+            stream: fs.streamGoalTransactions(coupleId, goal.id),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const SliverFillRemaining(
+                  child: Center(child: CircularProgressIndicator(color: AppTheme.primary)),
+                );
+              }
+              if (snapshot.hasError) {
+                return SliverFillRemaining(
+                  child: Center(child: Text('هەڵەیەک ڕوویدا!', style: const TextStyle(color: AppTheme.error))),
+                );
+              }
 
-                final transactions = snapshot.data ?? [];
-                if (transactions.isEmpty) {
-                  return Center(
+              final transactions = snapshot.data ?? [];
+              if (transactions.isEmpty) {
+                return SliverFillRemaining(
+                  child: Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.receipt_long, size: 60, color: Colors.white24),
+                        Icon(Icons.history_rounded, size: 64, color: Colors.white.withOpacity(0.1)),
                         const SizedBox(height: 16),
-                        Text('هیچ مێژوویەک نییە', style: AppTheme.bodyMedium.copyWith(color: Colors.white54)),
+                        const Text('هیچ مێژوویەک نییە', style: TextStyle(color: Colors.white54, fontSize: 16)),
                       ],
                     ),
-                  );
-                }
+                  ),
+                );
+              }
 
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  itemCount: transactions.length,
-                  itemBuilder: (context, index) {
-                    final tx = transactions[index];
-                    return StreamBuilder<UserModel?>(
-                      stream: fs.streamUser(tx.userId),
-                      builder: (context, userSnap) {
-                        final user = userSnap.data;
-                        final userName = user?.displayName ?? 'بەکارهێنەر';
-                        final isMe = tx.userId == currentUserId;
+              return SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final tx = transactions[index];
+                      return StreamBuilder<UserModel?>(
+                        stream: fs.streamUser(tx.userId),
+                        builder: (context, userSnap) {
+                          final user = userSnap.data;
+                          final userName = user?.displayName ?? 'بەکارهێنەر';
+                          final isMe = tx.userId == currentUserId;
+                          
+                          // Format date nicely
+                          final txDate = tx.createdAt;
+                          final now = DateTime.now();
+                          final isToday = txDate.year == now.year && txDate.month == now.month && txDate.day == now.day;
+                          final isYesterday = txDate.year == now.year && txDate.month == now.month && txDate.day == now.day - 1;
+                          
+                          String dateStr;
+                          if (isToday) {
+                            dateStr = 'ئەمڕۆ, ${DateFormat('hh:mm a').format(txDate)}';
+                          } else if (isYesterday) {
+                            dateStr = 'دوێنێ, ${DateFormat('hh:mm a').format(txDate)}';
+                          } else {
+                            dateStr = DateFormat('yyyy/MM/dd, hh:mm a').format(txDate);
+                          }
 
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: AppTheme.surface,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: AppTheme.primary.withValues(alpha: 0.1)),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: isMe ? AppTheme.primary.withValues(alpha: 0.2) : AppTheme.accent.withValues(alpha: 0.2),
-                                  shape: BoxShape.circle,
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 16),
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: AppTheme.surface,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: Colors.white.withOpacity(0.05)),
+                            ),
+                            child: Row(
+                              children: [
+                                // Initial or icon
+                                Container(
+                                  width: 48,
+                                  height: 48,
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: isMe 
+                                        ? [AppTheme.primary.withOpacity(0.8), AppTheme.primary.withOpacity(0.4)]
+                                        : [Colors.purpleAccent.withOpacity(0.8), Colors.purpleAccent.withOpacity(0.4)],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      userName.isNotEmpty ? userName[0].toUpperCase() : '?',
+                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20),
+                                    ),
+                                  ),
                                 ),
-                                child: Icon(Icons.add, color: isMe ? AppTheme.primary : AppTheme.accent),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        isMe ? 'تۆ زیادکرد' : '$userName زیادی کرد',
+                                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        dateStr,
+                                        style: const TextStyle(color: Colors.white54, fontSize: 12),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
                                   children: [
                                     Text(
-                                      isMe ? 'تۆ زایادتکرد' : '$userName زیادی کرد',
-                                      style: AppTheme.bodyLarge,
+                                      '+$currencyPrefix${formatCurrency.format(tx.amount)}',
+                                      style: const TextStyle(
+                                        color: AppTheme.success,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 18,
+                                      ),
                                     ),
-                                    const SizedBox(height: 4),
                                     Text(
-                                      DateFormat('yyyy/MM/dd hh:mm a').format(tx.createdAt),
-                                      style: AppTheme.bodyMedium.copyWith(fontSize: 12, color: Colors.white54),
-                                    ),
+                                      currencySuffix.trim(),
+                                      style: const TextStyle(color: AppTheme.success, fontSize: 12),
+                                    )
                                   ],
                                 ),
-                              ),
-                              Text(
-                                '+$currencyPrefix${formatCurrency.format(tx.amount)}$currencySuffix',
-                                style: const TextStyle(
-                                  color: AppTheme.success,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    );
-                  },
-                );
-              },
-            ),
+                              ],
+                            ),
+                          );
+                        },
+                      );
+                    },
+                    childCount: transactions.length,
+                  ),
+                ),
+              );
+            },
           ),
+          
+          // Bottom padding
+          const SliverToBoxAdapter(child: SizedBox(height: 40)),
         ],
       ),
     );

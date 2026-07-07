@@ -36,7 +36,11 @@ Future<void> main() async {
     ignoreUndefinedProperties: true,
   );
 
-  await NotificationService().init();
+  try {
+    await NotificationService().init();
+  } catch (e) {
+    debugPrint('Error initializing notifications: $e');
+  }
 
   runApp(const FamilyApp());
 }

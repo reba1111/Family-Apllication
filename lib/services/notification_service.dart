@@ -1,9 +1,20 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart' show Color;
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz_data;
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:googleapis_auth/auth_io.dart' as auth;
+import 'package:http/http.dart' as http;
 import '../core/constants.dart';
+import 'firestore_service.dart';
+
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  // Handle background messages here if needed
+}
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._();
@@ -11,14 +22,14 @@ class NotificationService {
   NotificationService._();
 
   final _plugin = FlutterLocalNotificationsPlugin();
+  final FirebaseMessaging _fcm = FirebaseMessaging.instance;
 
   Future<void> init() async {
-    if (kIsWeb) return; // web doesn't support local notifications
+    if (kIsWeb) return; // web doesn't support local notifications in this setup
 
+    // Local notifications setup
     tz_data.initializeTimeZones();
-
-    const androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
@@ -27,9 +38,108 @@ class NotificationService {
     await _plugin.initialize(
       const InitializationSettings(android: androidSettings, iOS: iosSettings),
     );
+
+    // Firebase Messaging Setup
+    await _requestPermission();
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+    
+    // Listen to messages when app is in foreground
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      if (message.notification != null) {
+        _showLocalNotification(
+          title: message.notification!.title ?? '',
+          body: message.notification!.body ?? '',
+        );
+      }
+    });
+
+    // Save token to Firestore when it's updated
+    _fcm.onTokenRefresh.listen((String token) {
+      FirestoreService().updateFCMToken(token);
+    });
   }
 
-  // ── Lessons ─────────────────────────────────────────────────────────────────
+  Future<void> _requestPermission() async {
+    NotificationSettings settings = await _fcm.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+      String? token = await _fcm.getToken();
+      if (token != null) {
+        await FirestoreService().updateFCMToken(token);
+      }
+    }
+  }
+
+  Future<void> _showLocalNotification({required String title, required String body}) async {
+    const details = NotificationDetails(
+      android: AndroidNotificationDetails(
+        'push_channel',
+        'ئاگادارکردنەوەکان',
+        importance: Importance.max,
+        priority: Priority.high,
+        color: Color(0xFFE91E8C),
+      ),
+      iOS: DarwinNotificationDetails(presentSound: true, presentAlert: true, presentBadge: true),
+    );
+    await _plugin.show(DateTime.now().millisecond, title, body, details);
+  }
+
+  // ── Push Notification Sender ───────────────────────────────────────────────
+
+  /// Sends a push notification via HTTP v1 API using a Service Account JSON.
+  Future<void> sendPushNotification({
+    required String targetToken,
+    required String title,
+    required String body,
+  }) async {
+    try {
+      final String response = await rootBundle.loadString('assets/service_account.json');
+      final Map<String, dynamic> accountCredentials = jsonDecode(response);
+      final String projectId = accountCredentials['project_id'];
+
+      final credentials = auth.ServiceAccountCredentials.fromJson(accountCredentials);
+      final client = await auth.clientViaServiceAccount(
+        credentials,
+        ['https://www.googleapis.com/auth/cloud-platform'],
+      );
+
+      final String endpoint = 'https://fcm.googleapis.com/v1/projects/$projectId/messages:send';
+      
+      final Map<String, dynamic> message = {
+        'message': {
+          'token': targetToken,
+          'notification': {
+            'title': title,
+            'body': body,
+          },
+          'android': {
+            'priority': 'high',
+          },
+          'apns': {
+            'payload': {
+              'aps': {
+                'sound': 'default',
+              }
+            }
+          }
+        }
+      };
+
+      await client.post(
+        Uri.parse(endpoint),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(message),
+      );
+      client.close();
+    } catch (e) {
+      print('Error sending push notification: $e');
+    }
+  }
+
+  // ── Lessons & Tasks (Existing) ──────────────────────────────────────────
 
   Future<void> scheduleLesson({
     required int id,
@@ -39,10 +149,8 @@ class NotificationService {
     required int minutesBefore,
   }) async {
     if (kIsWeb) return;
-
     final notifyAt = dateTime.subtract(Duration(minutes: minutesBefore));
     if (notifyAt.isBefore(DateTime.now())) return;
-
     await _plugin.zonedSchedule(
       AppConstants.lessonNotificationBase + (id % 5000),
       '📚 وانە نزیکایەتی دەبێت!',
@@ -54,7 +162,6 @@ class NotificationService {
         android: AndroidNotificationDetails(
           'lessons_channel',
           'وانەکان',
-          channelDescription: 'ئاگادارکردنەوەی وانەکان',
           importance: Importance.high,
           priority: Priority.high,
           color: Color(0xFFE91E8C),
@@ -63,8 +170,7 @@ class NotificationService {
         iOS: DarwinNotificationDetails(sound: 'default'),
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
+      uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
     );
   }
 
@@ -73,19 +179,14 @@ class NotificationService {
     await _plugin.cancel(AppConstants.lessonNotificationBase + (id % 5000));
   }
 
-  // ── Tasks ────────────────────────────────────────────────────────────────────
-
   Future<void> scheduleTask({
     required String taskId,
     required String title,
     required DateTime dueDate,
   }) async {
     if (kIsWeb) return;
-
-    // Notify 1 hour before due date
     final notifyAt = dueDate.subtract(const Duration(hours: 1));
     if (notifyAt.isBefore(DateTime.now())) return;
-
     final id = AppConstants.taskNotificationBase + (taskId.hashCode % 4000);
     await _plugin.zonedSchedule(
       id,
@@ -96,7 +197,6 @@ class NotificationService {
         android: AndroidNotificationDetails(
           'tasks_channel',
           'تاسکەکان',
-          channelDescription: 'ئاگادارکردنەوەی تاسکەکان',
           importance: Importance.defaultImportance,
           priority: Priority.defaultPriority,
           color: Color(0xFF4CAF81),
@@ -104,23 +204,19 @@ class NotificationService {
         iOS: DarwinNotificationDetails(sound: 'default'),
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
+      uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
     );
   }
 
   Future<void> cancelTask(String taskId) async {
     if (kIsWeb) return;
-    await _plugin.cancel(
-        AppConstants.taskNotificationBase + (taskId.hashCode % 4000));
+    await _plugin.cancel(AppConstants.taskNotificationBase + (taskId.hashCode % 4000));
   }
 
   Future<void> cancelAll() async {
     if (kIsWeb) return;
     await _plugin.cancelAll();
   }
-
-  // ── Helpers ──────────────────────────────────────────────────────────────────
 
   String _fmt(DateTime dt) {
     final h = dt.hour.toString().padLeft(2, '0');

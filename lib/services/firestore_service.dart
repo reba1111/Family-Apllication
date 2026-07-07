@@ -1,7 +1,10 @@
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../core/constants.dart';
 import '../models/user_model.dart';
+import '../models/models.dart';
+import 'notification_service.dart';
 import '../models/models.dart';
 
 class FirestoreService {
@@ -98,6 +101,71 @@ class FirestoreService {
         .map((d) => d.exists ? UserModel.fromFirestore(d) : null);
   }
 
+  Future<void> updateFCMToken(String token) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      await _db.collection(AppConstants.usersCollection).doc(uid).update({
+        'fcmToken': token,
+      });
+    }
+  }
+
+  /// Finds the partner of the given user in the given couple, and sends a push notification
+  /// to their FCM token if available.
+  Future<void> notifyPartner({
+    required String coupleId,
+    required String currentUserId,
+    required String title,
+    required String body,
+  }) async {
+    try {
+      final coupleDoc = await _db.collection(AppConstants.couplesCollection).doc(coupleId).get();
+      if (!coupleDoc.exists) return;
+      
+      final data = coupleDoc.data()!;
+      final String? user1Id = data['user1Id'];
+      final String? user2Id = data['user2Id'];
+      
+      String? partnerId;
+      if (user1Id == currentUserId) partnerId = user2Id;
+      else if (user2Id == currentUserId) partnerId = user1Id;
+
+      if (partnerId != null) {
+        final partnerDoc = await _db.collection(AppConstants.usersCollection).doc(partnerId).get();
+        if (partnerDoc.exists) {
+          final partnerData = partnerDoc.data()!;
+          final String? token = partnerData['fcmToken'];
+          if (token != null && token.isNotEmpty) {
+            await NotificationService().sendPushNotification(
+              targetToken: token,
+              title: title,
+              body: body,
+            );
+          }
+        }
+      }
+
+      // --- TEMPORARY TESTING LOGIC ---
+      // Send the notification to the CURRENT user as well, so they can test it on one device.
+      final currentUserDoc = await _db.collection(AppConstants.usersCollection).doc(currentUserId).get();
+      if (currentUserDoc.exists) {
+        final currentUserData = currentUserDoc.data()!;
+        final String? currentToken = currentUserData['fcmToken'];
+        if (currentToken != null && currentToken.isNotEmpty) {
+          await NotificationService().sendPushNotification(
+            targetToken: currentToken,
+            title: 'تێست: $title',
+            body: body,
+          );
+        }
+      }
+      // -------------------------------
+      
+    } catch (e) {
+      print('Error notifying partner: $e');
+    }
+  }
+
   Future<void> updateLikesDislikes({
     required String uid,
     required Map<String, List<String>> likes,
@@ -114,6 +182,19 @@ class FirestoreService {
       'currentMood': mood,
       'moodUpdatedAt': FieldValue.serverTimestamp(),
     });
+
+    if (mood != null && mood.isNotEmpty) {
+      final doc = await _db.collection(AppConstants.usersCollection).doc(uid).get();
+      final coupleId = doc.data()?['coupleId'] as String?;
+      if (coupleId != null) {
+        notifyPartner(
+          coupleId: coupleId,
+          currentUserId: uid,
+          title: 'باری دەروونی',
+          body: 'باری دەروونی گۆڕدرا بۆ: $mood',
+        );
+      }
+    }
   }
 
   Future<void> updateLocation(String uid, double lat, double lng, String status) async {
@@ -165,6 +246,15 @@ class FirestoreService {
 
   Future<String> addLesson(String coupleId, LessonModel lesson) async {
     final ref = await _lessonsRef(coupleId).add(lesson.toFirestore());
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      notifyPartner(
+        coupleId: coupleId,
+        currentUserId: uid,
+        title: 'وانەی نوێ',
+        body: 'وانەی "${lesson.title}" زیادکرا بۆ خشتەکە.',
+      );
+    }
     return ref.id;
   }
 
@@ -194,6 +284,15 @@ class FirestoreService {
 
   Future<String> addTask(String coupleId, TaskModel task) async {
     final ref = await _tasksRef(coupleId).add(task.toFirestore());
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      notifyPartner(
+        coupleId: coupleId,
+        currentUserId: uid,
+        title: 'ئەرکی نوێ',
+        body: 'ئەرکێکی نوێ زیادکرا: ${task.title}',
+      );
+    }
     return ref.id;
   }
 
@@ -203,6 +302,17 @@ class FirestoreService {
 
   Future<void> toggleTask(String coupleId, String taskId, bool isDone) async {
     await _tasksRef(coupleId).doc(taskId).update({'isDone': isDone});
+    if (isDone) {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid != null) {
+        notifyPartner(
+          coupleId: coupleId,
+          currentUserId: uid,
+          title: 'ئەرکێک تەواو کرا',
+          body: 'ئەرکێک لەلایەن هاوسەرەکەتەوە تەواوکرا ✅',
+        );
+      }
+    }
   }
 
   Future<void> deleteTask(String coupleId, String taskId) async {
@@ -227,6 +337,15 @@ class FirestoreService {
 
   Future<void> addQuiz(String coupleId, QuizModel quiz) async {
     await _quizRef(coupleId).add(quiz.toFirestore());
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      notifyPartner(
+        coupleId: coupleId,
+        currentUserId: uid,
+        title: 'پرسیاری نوێ',
+        body: 'پرسیارێکی نوێ هەیە بۆ وەڵامدانەوە 🤔',
+      );
+    }
   }
 
   Future<void> updateQuiz(String coupleId, String quizId, Map<String, dynamic> data) async {
@@ -247,6 +366,15 @@ class FirestoreService {
       'userAnswer': userAnswer,
       'isCorrect': isCorrect,
     });
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      notifyPartner(
+        coupleId: coupleId,
+        currentUserId: uid,
+        title: 'وەڵامی پرسیار',
+        body: 'وەڵامی پرسیارەکەت درایەوە 🎉',
+      );
+    }
   }
 
   Future<void> deleteQuiz(String coupleId, String quizId) async {
@@ -300,6 +428,15 @@ class FirestoreService {
 
   Future<void> addMemory(String coupleId, MemoryModel memory) async {
     await _memoriesRef(coupleId).add(memory.toFirestore());
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      notifyPartner(
+        coupleId: coupleId,
+        currentUserId: uid,
+        title: 'یادگاری نوێ',
+        body: 'یادگارییەکی نوێ زیادکرا: ${memory.title}',
+      );
+    }
   }
 
   Future<void> updateMemory(String coupleId, String memoryId, MemoryModel memory) async {
@@ -328,6 +465,15 @@ class FirestoreService {
 
   Future<void> addNote(String coupleId, NoteModel note) async {
     await _notesRef(coupleId).add(note.toFirestore());
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      notifyPartner(
+        coupleId: coupleId,
+        currentUserId: uid,
+        title: 'نامەی نوێ 💌',
+        body: 'نامەیەکی نوێت بۆ هاتووە!',
+      );
+    }
   }
 
   Future<void> updateNote(String coupleId, String noteId, NoteModel note) async {
@@ -360,6 +506,15 @@ class FirestoreService {
 
   Future<void> addGoal(String coupleId, GoalModel goal) async {
     await _goalsRef(coupleId).add(goal.toFirestore());
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      notifyPartner(
+        coupleId: coupleId,
+        currentUserId: uid,
+        title: 'ئامانجی نوێ',
+        body: 'ئامانجێکی پاشەکەوتی نوێ زیادکرا: ${goal.title}',
+      );
+    }
   }
 
   Future<void> updateGoal(String coupleId, String goalId, GoalModel goal) async {
