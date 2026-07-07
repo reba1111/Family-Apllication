@@ -13,6 +13,7 @@ import '../../memories/memories_screen.dart';
 import '../../notes/notes_screen.dart';
 import '../../goals/goals_screen.dart';
 import '../../location/location_screen.dart';
+import '../../shopping/shopping_list_screen.dart';
 
 class DashboardTab extends StatelessWidget {
   final UserModel user;
@@ -196,7 +197,7 @@ class DashboardTab extends StatelessWidget {
                         MaterialPageRoute(
                           builder: (_) => QuizScreen(
                             coupleId: user.coupleId!,
-                            currentUserId: user.uid,
+                            me: user,
                           ),
                         ),
                       ),
@@ -222,7 +223,7 @@ class DashboardTab extends StatelessWidget {
                         MaterialPageRoute(
                           builder: (_) => GoalsScreen(
                             coupleId: user.coupleId!,
-                            currentUserId: user.uid,
+                            me: user,
                           ),
                         ),
                       ),
@@ -237,6 +238,20 @@ class DashboardTab extends StatelessWidget {
                           builder: (_) => LocationScreen(
                             currentUserId: user.uid,
                             partnerId: user.partnerId,
+                          ),
+                        ),
+                      ),
+                    ),
+                    _FeatureCard(
+                      emoji: '🛒',
+                      title: 'لیستی کڕین',
+                      subtitle: 'کڕینی پێداویستییەکان',
+                      color: const Color(0xFFFF5722),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => ShoppingListScreen(
+                            coupleId: user.coupleId!,
+                            me: user,
                           ),
                         ),
                       ),

@@ -56,10 +56,14 @@ class _HomeScreenState extends State<HomeScreen> {
     final tabs = [
       DashboardTab(user: _user!),
       if (coupleId != null) LessonsScreen(coupleId: coupleId),
-      if (coupleId != null) TasksScreen(coupleId: coupleId, currentUserId: uid),
+      if (coupleId != null) TasksScreen(
+        coupleId: coupleId, 
+        currentUserId: uid, 
+        partnerName: _user!.partnerNickname ?? 'هاوسەر',
+      ),
       ProfileTab(user: _user!),
       if (coupleId != null && partnerId != null)
-        PartnerTab(coupleId: coupleId, partnerId: partnerId),
+        PartnerTab(coupleId: coupleId, partnerId: partnerId, me: _user!),
     ];
 
     final navItems = [

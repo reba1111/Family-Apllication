@@ -101,6 +101,7 @@ class FirestoreService {
         .map((d) => d.exists ? UserModel.fromFirestore(d) : null);
   }
 
+
   Future<void> updateFCMToken(String token) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid != null) {
@@ -145,22 +146,7 @@ class FirestoreService {
         }
       }
 
-      // --- TEMPORARY TESTING LOGIC ---
-      // Send the notification to the CURRENT user as well, so they can test it on one device.
-      final currentUserDoc = await _db.collection(AppConstants.usersCollection).doc(currentUserId).get();
-      if (currentUserDoc.exists) {
-        final currentUserData = currentUserDoc.data()!;
-        final String? currentToken = currentUserData['fcmToken'];
-        if (currentToken != null && currentToken.isNotEmpty) {
-          await NotificationService().sendPushNotification(
-            targetToken: currentToken,
-            title: 'تێست: $title',
-            body: body,
-          );
-        }
-      }
-      // -------------------------------
-      
+
     } catch (e) {
       print('Error notifying partner: $e');
     }
@@ -564,4 +550,58 @@ class FirestoreService {
   }
 
   String generateTestCode() => _randomSixDigits();
+
+  // ─────────────────────────────────────────────────────────────────
+  // SHOPPING LIST
+  // ─────────────────────────────────────────────────────────────────
+
+  CollectionReference _shoppingRef(String coupleId) => _db
+      .collection(AppConstants.couplesCollection)
+      .doc(coupleId)
+      .collection('shopping_list');
+
+  Stream<List<ShoppingItemModel>> streamShoppingList(String coupleId) {
+    return _shoppingRef(coupleId)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((s) => s.docs.map((d) => ShoppingItemModel.fromFirestore(d)).toList());
+  }
+
+  Future<void> addShoppingItem(String coupleId, ShoppingItemModel item) async {
+    await _shoppingRef(coupleId).add(item.toFirestore());
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      notifyPartner(
+        coupleId: coupleId,
+        currentUserId: uid,
+        title: 'کەرەستەی نوێ',
+        body: 'کەرەستەیەکی نوێ بۆ لیستی بازاڕکردن زیادکرا: ${item.name}',
+      );
+    }
+  }
+
+  Future<void> toggleShoppingItem(String coupleId, String itemId, bool isBought, String itemName) async {
+    await _shoppingRef(coupleId).doc(itemId).update({'isBought': isBought});
+    if (isBought) {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid != null) {
+        notifyPartner(
+          coupleId: coupleId,
+          currentUserId: uid,
+          title: 'کڕدرا ✅',
+          body: '$itemName کڕدرا.',
+        );
+      }
+    }
+  }
+
+  Future<void> updatePartnerNickname(String uid, String nickname) async {
+    await _db.collection(AppConstants.usersCollection).doc(uid).update({
+      'partnerNickname': nickname.isEmpty ? FieldValue.delete() : nickname,
+    });
+  }
+
+  Future<void> deleteShoppingItem(String coupleId, String itemId) async {
+    await _shoppingRef(coupleId).doc(itemId).delete();
+  }
 }

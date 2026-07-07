@@ -339,9 +339,9 @@ class _TasksScreenState extends State<TasksScreen>
                   ),
                   labelStyle: AppTheme.labelLarge,
                   unselectedLabelColor: AppTheme.onSurfaceMuted,
-                  tabs: const [
-                    Tab(text: '👤 تاسکەکانم'),
-                    Tab(text: '💑 تاسکی هاوسەر'),
+                  tabs: [
+                    const Tab(text: '👤 تاسکی من'),
+                    Tab(text: '💑 تاسکی ${widget.partnerName}'),
                   ],
                 ),
               ),

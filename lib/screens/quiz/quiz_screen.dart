@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import '../../core/theme.dart';
 import '../../models/models.dart';
+import '../../models/user_model.dart';
 import '../../services/firestore_service.dart';
 
 class QuizScreen extends StatefulWidget {
   final String coupleId;
-  final String currentUserId;
+  final UserModel me;
   const QuizScreen(
-      {super.key, required this.coupleId, required this.currentUserId});
+      {super.key, required this.coupleId, required this.me});
 
   @override
   State<QuizScreen> createState() => _QuizScreenState();
@@ -80,7 +81,7 @@ class _QuizScreenState extends State<QuizScreen>
                           id: editQuiz?.id ?? '',
                           question: qCtrl.text.trim(),
                           answer: aCtrl.text.trim(),
-                          createdBy: widget.currentUserId,
+                          createdBy: widget.me.uid,
                           createdAt: editQuiz?.createdAt ?? DateTime.now(),
                           answeredBy: editQuiz?.answeredBy,
                           userAnswer: editQuiz?.userAnswer,
@@ -141,7 +142,7 @@ class _QuizScreenState extends State<QuizScreen>
   }
 
   void _showAnswer(QuizModel quiz) {
-    if (quiz.createdBy == widget.currentUserId) {
+    if (quiz.createdBy == widget.me.uid) {
       if (quiz.answeredBy == null) {
         _showAddEditQuiz(editQuiz: quiz);
         return;
@@ -198,7 +199,7 @@ class _QuizScreenState extends State<QuizScreen>
                     await _fs.answerQuiz(
                       coupleId: widget.coupleId,
                       quizId: quiz.id,
-                      answeredBy: widget.currentUserId,
+                      answeredBy: widget.me.uid,
                       userAnswer: ansCtrl.text.trim(),
                       correctAnswer: quiz.answer,
                     );
@@ -251,9 +252,9 @@ class _QuizScreenState extends State<QuizScreen>
                   ),
                   labelStyle: AppTheme.labelLarge,
                   unselectedLabelColor: AppTheme.onSurfaceMuted,
-                  tabs: const [
-                    Tab(text: 'پرسیارەکانم'),
-                    Tab(text: 'پرسیارەکانی هاوسەر'),
+                  tabs: [
+                    const Tab(text: 'پرسیارەکانم'),
+                    Tab(text: 'پرسیارەکانی ${widget.me.partnerNickname ?? 'هاوسەر'}'),
                   ],
                 ),
               ),
@@ -270,10 +271,10 @@ class _QuizScreenState extends State<QuizScreen>
                     }
                     final all = snap.data ?? [];
                     final mine = all
-                        .where((q) => q.createdBy == widget.currentUserId)
+                        .where((q) => q.createdBy == widget.me.uid)
                         .toList();
                     final theirs = all
-                        .where((q) => q.createdBy != widget.currentUserId)
+                        .where((q) => q.createdBy != widget.me.uid)
                         .toList();
 
                     return TabBarView(

@@ -8,13 +8,13 @@ import '../../services/firestore_service.dart';
 class GoalHistoryScreen extends StatelessWidget {
   final String coupleId;
   final GoalModel goal;
-  final String currentUserId;
+  final UserModel me;
 
   const GoalHistoryScreen({
     super.key,
     required this.coupleId,
     required this.goal,
-    required this.currentUserId,
+    required this.me,
   });
 
   @override
@@ -180,8 +180,10 @@ class GoalHistoryScreen extends StatelessWidget {
                         stream: fs.streamUser(tx.userId),
                         builder: (context, userSnap) {
                           final user = userSnap.data;
-                          final userName = user?.displayName ?? 'بەکارهێنەر';
-                          final isMe = tx.userId == currentUserId;
+                          final userName = (user?.uid == me.partnerId && me.partnerNickname != null)
+                              ? me.partnerNickname!
+                              : (user?.displayName ?? 'بەکارهێنەر');
+                          final isMe = tx.userId == me.uid;
                           
                           // Format date nicely
                           final txDate = tx.createdAt;

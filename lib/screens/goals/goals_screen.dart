@@ -3,17 +3,18 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../core/theme.dart';
 import '../../models/models.dart';
+import '../../models/user_model.dart';
 import '../../services/firestore_service.dart';
 import 'add_goal_screen.dart';
 import 'goal_history_screen.dart';
 
 class GoalsScreen extends StatelessWidget {
-  final String currentUserId;
+  final UserModel me;
   final String coupleId;
 
   const GoalsScreen({
     super.key,
-    required this.currentUserId,
+    required this.me,
     required this.coupleId,
   });
 
@@ -29,7 +30,7 @@ class GoalsScreen extends StatelessWidget {
           MaterialPageRoute(
             builder: (_) => AddGoalScreen(
               coupleId: coupleId,
-              currentUserId: currentUserId,
+              currentUserId: me.uid,
             ),
           ),
         ),
@@ -166,7 +167,7 @@ class GoalsScreen extends StatelessWidget {
                       (context, index) {
                         return _GoalCard(
                           goal: goals[index],
-                          currentUserId: currentUserId,
+                          me: me,
                           coupleId: coupleId,
                           fs: fs,
                         );
@@ -185,13 +186,13 @@ class GoalsScreen extends StatelessWidget {
 
 class _GoalCard extends StatelessWidget {
   final GoalModel goal;
-  final String currentUserId;
+  final UserModel me;
   final String coupleId;
   final FirestoreService fs;
 
   const _GoalCard({
     required this.goal,
-    required this.currentUserId,
+    required this.me,
     required this.coupleId,
     required this.fs,
   });
@@ -200,7 +201,7 @@ class _GoalCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final formatCurrency = NumberFormat.decimalPattern();
     final percentage = (goal.progress * 100).toStringAsFixed(1);
-    final isMine = goal.createdBy == currentUserId;
+    final isMine = goal.createdBy == me.uid;
     final currencyPrefix = goal.currency == '\$' ? '\$' : '';
     final currencySuffix = goal.currency == 'IQD' ? ' دینار' : '';
 
@@ -236,7 +237,7 @@ class _GoalCard extends StatelessWidget {
                   builder: (_) => GoalHistoryScreen(
                     coupleId: coupleId,
                     goal: goal,
-                    currentUserId: currentUserId,
+                    me: me,
                   ),
                 ),
               );
@@ -281,7 +282,7 @@ class _GoalCard extends StatelessWidget {
                                 MaterialPageRoute(
                                   builder: (_) => AddGoalScreen(
                                     coupleId: coupleId,
-                                    currentUserId: currentUserId,
+                                    currentUserId: me.uid,
                                     goal: goal,
                                   ),
                                 ),
@@ -502,11 +503,11 @@ class _GoalCard extends StatelessWidget {
                       if (amount != null && amount > 0) {
                         Navigator.pop(context);
                         try {
-                          await fs.addFundsToGoal(coupleId, goal.id, amount, currentUserId);
+                          await fs.addFundsToGoal(coupleId, goal.id, amount, me.uid);
                           // Notify partner
                           fs.notifyPartner(
                             coupleId: coupleId,
-                            currentUserId: currentUserId,
+                            currentUserId: me.uid,
                             title: 'ئامانجی پاشەکەوت',
                             body: '${goal.icon} بڕی $text زیادکرا بۆ ${goal.title}',
                           );

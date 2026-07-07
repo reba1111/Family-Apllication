@@ -14,10 +14,14 @@ class NotesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (me.coupleId == null) {
+      final partnerName = me.partnerNickname ?? 'هاوسەرەکەت';
       return Scaffold(
         backgroundColor: AppTheme.background,
-        appBar: AppBar(title: const Text('نامە شاردراوەکان')),
-        body: const Center(child: Text('هێشتا هاوسەرەکەت بەستراو نییە')),
+        appBar: AppBar(
+          title: const Text('نامە شاراوەکان 💌'),
+          backgroundColor: Colors.transparent,
+        ),
+        body: Center(child: Text('هێشتا $partnerName بەستراو نییە')),
       );
     }
 
@@ -61,7 +65,7 @@ class NotesScreen extends StatelessWidget {
             itemCount: notes.length,
             itemBuilder: (context, index) {
               final note = notes[index];
-              return _NoteCard(note: note, currentUserId: me.uid, coupleId: me.coupleId!, fs: fs);
+              return _NoteCard(note: note, me: me, coupleId: me.coupleId!, fs: fs);
             },
           );
         },
@@ -84,13 +88,13 @@ class NotesScreen extends StatelessWidget {
 
 class _NoteCard extends StatelessWidget {
   final NoteModel note;
-  final String currentUserId;
+  final UserModel me;
   final String coupleId;
   final FirestoreService fs;
 
   const _NoteCard({
     required this.note,
-    required this.currentUserId,
+    required this.me,
     required this.coupleId,
     required this.fs,
   });
@@ -99,7 +103,7 @@ class _NoteCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final now = DateTime.now();
     final isLocked = note.unlockDate.isAfter(now);
-    final amSender = note.createdBy == currentUserId;
+    final amSender = note.createdBy == me.uid;
     final dateFormat = DateFormat('yyyy/MM/dd - hh:mm a');
 
     if (isLocked) {
@@ -126,7 +130,7 @@ class _NoteCard extends StatelessWidget {
                           MaterialPageRoute(
                             builder: (_) => CreateNoteScreen(
                               coupleId: coupleId,
-                              currentUserId: currentUserId,
+                              currentUserId: me.uid,
                               note: note,
                             ),
                           ),
@@ -144,7 +148,7 @@ class _NoteCard extends StatelessWidget {
             Text('نامەیەکی شاردراوە 💌', style: AppTheme.titleLarge),
             const SizedBox(height: 8),
             Text(
-              amSender ? 'تۆ ئەم نامەیەت ناردووە' : 'هاوسەرەکەت ئەم نامەیەی بۆ ناردوویت',
+              amSender ? 'تۆ ئەم نامەیەت ناردووە' : '${me.partnerNickname ?? 'هاوسەرەکەت'} ئەم نامەیەی بۆ ناردوویت',
               style: AppTheme.bodyMedium,
             ),
             const SizedBox(height: 8),
@@ -187,7 +191,7 @@ class _NoteCard extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  amSender ? 'نامەکەت بۆ هاوسەرەکەت' : 'نامەیەک لە هاوسەرەکەتەوە',
+                  amSender ? 'نامەکەت بۆ ${me.partnerNickname ?? 'هاوسەرەکەت'}' : 'نامەیەک لە ${me.partnerNickname ?? 'هاوسەرەکەت'}ەوە',
                   style: AppTheme.titleLarge.copyWith(fontSize: 16),
                 ),
               ),

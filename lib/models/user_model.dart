@@ -36,6 +36,7 @@ class UserModel {
   final String displayName;
   final String? coupleId;
   final String? partnerId;
+  final String? partnerNickname;
   final Map<String, List<String>> likes;
   final Map<String, List<String>> dislikes;
   final DateTime createdAt;
@@ -55,6 +56,7 @@ class UserModel {
     required this.displayName,
     this.coupleId,
     this.partnerId,
+    this.partnerNickname,
     this.likes = const {},
     this.dislikes = const {},
     required this.createdAt,
@@ -96,6 +98,7 @@ class UserModel {
       displayName: data['displayName'] ?? '',
       coupleId: data['coupleId'],
       partnerId: data['partnerId'],
+      partnerNickname: data['partnerNickname'],
       likes: _parseCategorizedList(data['likes']),
       dislikes: _parseCategorizedList(data['dislikes']),
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
@@ -115,6 +118,7 @@ class UserModel {
         'displayName': displayName,
         'coupleId': coupleId,
         'partnerId': partnerId,
+        if (partnerNickname != null) 'partnerNickname': partnerNickname,
         'likes': likes,
         'dislikes': dislikes,
         'createdAt': Timestamp.fromDate(createdAt),
@@ -132,6 +136,7 @@ class UserModel {
     String? displayName,
     String? coupleId,
     String? partnerId,
+    String? partnerNickname,
     Map<String, List<String>>? likes,
     Map<String, List<String>>? dislikes,
     String? currentMood,
@@ -145,6 +150,7 @@ class UserModel {
       displayName: displayName ?? this.displayName,
       coupleId: coupleId ?? this.coupleId,
       partnerId: partnerId ?? this.partnerId,
+      partnerNickname: partnerNickname ?? this.partnerNickname,
       likes: likes ?? this.likes,
       dislikes: dislikes ?? this.dislikes,
       createdAt: createdAt,

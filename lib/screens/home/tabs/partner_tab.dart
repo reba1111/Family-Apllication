@@ -6,8 +6,14 @@ import '../../../services/firestore_service.dart';
 class PartnerTab extends StatelessWidget {
   final String coupleId;
   final String partnerId;
-  const PartnerTab(
-      {super.key, required this.coupleId, required this.partnerId});
+  final UserModel me;
+
+  const PartnerTab({
+    super.key,
+    required this.coupleId,
+    required this.partnerId,
+    required this.me,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -36,6 +42,15 @@ class PartnerTab extends StatelessWidget {
                   const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
               child: Column(
                 children: [
+                  // Edit nickname button
+                  Align(
+                    alignment: Alignment.topLeft,
+                    child: IconButton(
+                      icon: const Icon(Icons.edit, color: AppTheme.primary),
+                      tooltip: 'گۆڕینی ناوی هاوسەر',
+                      onPressed: () => _editNickname(context),
+                    ),
+                  ),
                   // Partner avatar
                   Container(
                     width: 90,
@@ -69,7 +84,7 @@ class PartnerTab extends StatelessWidget {
                   Text(partner.displayName,
                       style: AppTheme.headlineMedium),
                   const SizedBox(height: 4),
-                  Text('هاوسەرەکەت ❤️',
+                  Text(me.partnerNickname ?? 'هاوسەرەکەت ❤️',
                       style: AppTheme.bodyMedium
                           .copyWith(color: AppTheme.primary)),
                   const SizedBox(height: 36),
@@ -93,6 +108,35 @@ class PartnerTab extends StatelessWidget {
             );
           },
         ),
+      ),
+    );
+  }
+
+  void _editNickname(BuildContext context) {
+    final TextEditingController ctrl = TextEditingController(text: me.partnerNickname);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('ناوی هاوسەر'),
+        content: TextField(
+          controller: ctrl,
+          decoration: const InputDecoration(
+            hintText: 'نموونە: خاتوون، گیانەکەم...',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('پاشگەزبوونەوە'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await FirestoreService().updatePartnerNickname(me.uid, ctrl.text.trim());
+              if (ctx.mounted) Navigator.pop(ctx);
+            },
+            child: const Text('پاشەکەوتکردن'),
+          ),
+        ],
       ),
     );
   }

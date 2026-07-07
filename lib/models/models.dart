@@ -410,3 +410,45 @@ class GoalTransactionModel {
         'createdAt': Timestamp.fromDate(createdAt),
       };
 }
+
+class ShoppingItemModel {
+  final String id;
+  final String name;
+  final bool isBought;
+  final String addedBy;
+  final DateTime createdAt;
+
+  const ShoppingItemModel({
+    required this.id,
+    required this.name,
+    this.isBought = false,
+    required this.addedBy,
+    required this.createdAt,
+  });
+
+  factory ShoppingItemModel.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return ShoppingItemModel(
+      id: doc.id,
+      name: data['name'] ?? '',
+      isBought: data['isBought'] ?? false,
+      addedBy: data['addedBy'] ?? '',
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+    );
+  }
+
+  Map<String, dynamic> toFirestore() => {
+        'name': name,
+        'isBought': isBought,
+        'addedBy': addedBy,
+        'createdAt': Timestamp.fromDate(createdAt),
+      };
+
+  ShoppingItemModel copyWith({bool? isBought, String? name}) => ShoppingItemModel(
+        id: id,
+        name: name ?? this.name,
+        isBought: isBought ?? this.isBought,
+        addedBy: addedBy,
+        createdAt: createdAt,
+      );
+}

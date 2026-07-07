@@ -32,8 +32,8 @@ void main() {
         displayName: 'تێست',
         coupleId: 'couple-xyz',
         partnerId: 'partner-uid',
-        likes: ['فلم', 'موسیقا'],
-        dislikes: ['شەپۆل'],
+        likes: {'گشتی': ['فلم', 'موسیقا']},
+        dislikes: {'گشتی': ['شەپۆل']},
         createdAt: DateTime(2024, 6, 1),
       );
 
@@ -43,8 +43,8 @@ void main() {
       expect(map['displayName'], 'تێست');
       expect(map['coupleId'], 'couple-xyz');
       expect(map['partnerId'], 'partner-uid');
-      expect(map['likes'], ['فلم', 'موسیقا']);
-      expect(map['dislikes'], ['شەپۆل']);
+      expect(map['likes'], {'گشتی': ['فلم', 'موسیقا']});
+      expect(map['dislikes'], {'گشتی': ['شەپۆل']});
     });
 
     test('default likes and dislikes are empty', () {
