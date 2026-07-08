@@ -134,7 +134,7 @@ class AuthService {
     return _firestore
         .collection(AppConstants.usersCollection)
         .doc(uid)
-        .snapshots()
+        .snapshots(includeMetadataChanges: true)
         .map((doc) => doc.exists ? UserModel.fromFirestore(doc) : null);
   }
 }
