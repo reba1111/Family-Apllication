@@ -213,6 +213,48 @@ class NotificationService {
     await _plugin.cancel(AppConstants.taskNotificationBase + (taskId.hashCode % 4000));
   }
 
+  // ── Events / Calendar ─────────────────────────────────────────────────────
+
+  Future<void> scheduleEvent({
+    required String eventId,
+    required String title,
+    required String icon,
+    required DateTime date,
+  }) async {
+    if (kIsWeb) return;
+    
+    // Notify 1 day before the event
+    final notifyAt = date.subtract(const Duration(days: 1));
+    if (notifyAt.isBefore(DateTime.now())) return;
+    
+    final id = 10000 + (eventId.hashCode % 5000);
+    await _plugin.zonedSchedule(
+      id,
+      'بۆنە نزیکە! $icon',
+      'بەیانی $title یە! خۆت ئامادە بکە 🎉',
+      tz.TZDateTime.from(notifyAt, tz.local),
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'events_channel',
+          'بۆنەکان',
+          importance: Importance.max,
+          priority: Priority.high,
+          color: Color(0xFF673AB7),
+          playSound: true,
+        ),
+        iOS: DarwinNotificationDetails(sound: 'default'),
+      ),
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+    );
+  }
+
+  Future<void> cancelEvent(String eventId) async {
+    if (kIsWeb) return;
+    await _plugin.cancel(10000 + (eventId.hashCode % 5000));
+  }
+
+
   Future<void> cancelAll() async {
     if (kIsWeb) return;
     await _plugin.cancelAll();

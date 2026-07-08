@@ -14,7 +14,8 @@ import '../../notes/notes_screen.dart';
 import '../../goals/goals_screen.dart';
 import '../../location/location_screen.dart';
 import '../../shopping/shopping_list_screen.dart';
-
+import '../../calendar/calendar_screen.dart';
+import '../../stats/wrapped_screen.dart';
 class DashboardTab extends StatelessWidget {
   final UserModel user;
   const DashboardTab({super.key, required this.user});
@@ -84,7 +85,67 @@ class DashboardTab extends StatelessWidget {
               ),
               const SizedBox(height: 28),
 
-
+              // Wrapped Banner
+              if (linked)
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => WrappedScreen(
+                          me: user,
+                          partnerName: user.partnerNickname ?? 'هاوسەرەکەت',
+                        ),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFE94057), Color(0xFFF27121)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFE94057).withOpacity(0.4),
+                          blurRadius: 15,
+                          offset: const Offset(0, 5),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: const [
+                              Text(
+                                'ئاماری پەیوەندی 📊',
+                                style: TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                'ئامارەکانی ئەمساڵتان لێرەوە ببینە!',
+                                style: TextStyle(color: Colors.white70),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white),
+                      ],
+                    ),
+                  ),
+                ),
+              if (linked) const SizedBox(height: 28),
 
               // Not linked warning
               if (!linked)
@@ -253,6 +314,17 @@ class DashboardTab extends StatelessWidget {
                             coupleId: user.coupleId!,
                             me: user,
                           ),
+                        ),
+                      ),
+                    ),
+                    _FeatureCard(
+                      emoji: '📅',
+                      title: 'ڕۆژژمێر',
+                      subtitle: 'بۆنە و کاتەکان',
+                      color: const Color(0xFF673AB7),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => CalendarScreen(coupleId: user.coupleId!),
                         ),
                       ),
                     ),

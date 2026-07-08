@@ -604,4 +604,123 @@ class FirestoreService {
   Future<void> deleteShoppingItem(String coupleId, String itemId) async {
     await _shoppingRef(coupleId).doc(itemId).delete();
   }
+
+  // ─────────────────────────────────────────────────────────────────
+  // EVENTS / SHARED CALENDAR
+  // ─────────────────────────────────────────────────────────────────
+
+  CollectionReference _eventsRef(String coupleId) =>
+      _db.collection(AppConstants.couplesCollection).doc(coupleId).collection('events');
+
+  Stream<List<EventModel>> streamEvents(String coupleId) {
+    return _eventsRef(coupleId)
+        .orderBy('date')
+        .snapshots()
+        .map((snap) => snap.docs.map((d) => EventModel.fromFirestore(d)).toList());
+  }
+
+  Future<void> addEvent(String coupleId, EventModel event) async {
+    final docRef = await _eventsRef(coupleId).add(event.toFirestore());
+    if (event.notify) {
+      // Schedule local notification
+      NotificationService().scheduleEvent(
+        eventId: docRef.id,
+        title: event.title,
+        icon: event.icon,
+        date: event.date,
+      );
+      
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid != null) {
+        notifyPartner(
+          coupleId: coupleId,
+          currentUserId: uid,
+          title: 'بۆنەیەکی نوێ 📅',
+          body: '${event.title} زیادکرا.',
+        );
+      }
+    }
+  }
+
+  Future<void> updateEvent(String coupleId, String eventId, EventModel event) async {
+    await _eventsRef(coupleId).doc(eventId).update(event.toFirestore());
+    if (event.notify) {
+      NotificationService().scheduleEvent(
+        eventId: eventId,
+        title: event.title,
+        icon: event.icon,
+        date: event.date,
+      );
+    } else {
+      NotificationService().cancelEvent(eventId);
+    }
+  }
+
+  Future<void> deleteEvent(String coupleId, String eventId) async {
+    await _eventsRef(coupleId).doc(eventId).delete();
+    NotificationService().cancelEvent(eventId);
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  // STATS (WRAPPED)
+  // ─────────────────────────────────────────────────────────────────
+
+  Future<RelationshipStats> getRelationshipStats(String coupleId) async {
+    final coupleDoc = _db.collection(AppConstants.couplesCollection).doc(coupleId);
+    
+    // 1. Memories
+    final memoriesSnap = await coupleDoc.collection('memories').get();
+    final totalMemories = memoriesSnap.docs.length;
+
+    // 2. Quizzes
+    final quizzesSnap = await coupleDoc.collection(AppConstants.quizCollection).get();
+    final totalQuizzes = quizzesSnap.docs.length;
+    final quizzesAnswered = quizzesSnap.docs.where((d) => d.data().containsKey('answeredBy') && d.data()['answeredBy'] != null).length;
+
+    // 3. Notes
+    final notesSnap = await coupleDoc.collection('notes').get();
+    final totalNotes = notesSnap.docs.length;
+
+    // 4. Tasks
+    final tasksSnap = await coupleDoc.collection(AppConstants.tasksCollection).get();
+    final totalTasksCompleted = tasksSnap.docs.where((d) => d.data()['isCompleted'] == true).length;
+
+    // 5. Goals & Funds
+    final goalsSnap = await coupleDoc.collection('goals').get();
+    final totalGoals = goalsSnap.docs.length;
+    
+    int completedGoals = 0;
+    Map<String, double> userFunds = {};
+    
+    for (var doc in goalsSnap.docs) {
+      final data = doc.data();
+      final current = (data['currentAmount'] ?? 0).toDouble();
+      final target = (data['targetAmount'] ?? 0).toDouble();
+      if (current >= target && target > 0) {
+        completedGoals++;
+      }
+      
+      // Get transactions
+      final txSnap = await doc.reference.collection('transactions').get();
+      for (var txDoc in txSnap.docs) {
+        final txData = txDoc.data();
+        final amount = (txData['amount'] ?? 0).toDouble();
+        final userId = txData['userId'] as String?;
+        if (userId != null) {
+          userFunds[userId] = (userFunds[userId] ?? 0) + amount;
+        }
+      }
+    }
+
+    return RelationshipStats(
+      totalMemories: totalMemories,
+      totalGoals: totalGoals,
+      completedGoals: completedGoals,
+      totalQuizzes: totalQuizzes,
+      quizzesAnswered: quizzesAnswered,
+      totalNotes: totalNotes,
+      totalTasksCompleted: totalTasksCompleted,
+      userFunds: userFunds,
+    );
+  }
 }

@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+export 'relationship_stats.dart';
 class LessonModel {
   final String id;
   final String title;
@@ -451,4 +452,75 @@ class ShoppingItemModel {
         addedBy: addedBy,
         createdAt: createdAt,
       );
+}
+
+class EventModel {
+  final String id;
+  final String title;
+  final String description;
+  final DateTime date;
+  final String type; // e.g., 'birthday', 'anniversary', 'appointment', 'trip', 'other'
+  final String icon;
+  final bool notify;
+  final String createdBy;
+  final DateTime createdAt;
+
+  const EventModel({
+    required this.id,
+    required this.title,
+    this.description = '',
+    required this.date,
+    required this.type,
+    required this.icon,
+    this.notify = true,
+    required this.createdBy,
+    required this.createdAt,
+  });
+
+  factory EventModel.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return EventModel(
+      id: doc.id,
+      title: data['title'] ?? '',
+      description: data['description'] ?? '',
+      date: (data['date'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      type: data['type'] ?? 'other',
+      icon: data['icon'] ?? '📅',
+      notify: data['notify'] ?? true,
+      createdBy: data['createdBy'] ?? '',
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+    );
+  }
+
+  Map<String, dynamic> toFirestore() => {
+        'title': title,
+        'description': description,
+        'date': Timestamp.fromDate(date),
+        'type': type,
+        'icon': icon,
+        'notify': notify,
+        'createdBy': createdBy,
+        'createdAt': Timestamp.fromDate(createdAt),
+      };
+
+  EventModel copyWith({
+    String? title,
+    String? description,
+    DateTime? date,
+    String? type,
+    String? icon,
+    bool? notify,
+  }) {
+    return EventModel(
+      id: id,
+      title: title ?? this.title,
+      description: description ?? this.description,
+      date: date ?? this.date,
+      type: type ?? this.type,
+      icon: icon ?? this.icon,
+      notify: notify ?? this.notify,
+      createdBy: createdBy,
+      createdAt: createdAt,
+    );
+  }
 }
